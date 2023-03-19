@@ -12,7 +12,22 @@ class MyUserManager(UserManager):
         user.set_password(password)
         user.save(using=self._db)
         return user
-
+    
+    def create_superuser(self, email,username, first_name, last_name, password, **extra_fields):
+        user = self.create_user(
+            email,
+            first_name=first_name,
+            last_name=last_name,
+            username=username,
+            password=password,
+            is_superuser=True,
+            **extra_fields
+        )
+        user.is_admin = True
+        user.save(using=self._db)
+        return user
+    
+    
 class User(AbstractBaseUser , PermissionsMixin):
     username = models.CharField(max_length=150 , blank=False , unique=True)
     first_name = models.CharField(max_length=150, blank=False)
@@ -23,6 +38,8 @@ class User(AbstractBaseUser , PermissionsMixin):
     bio = models.TextField(blank=True)
     date_joined = models.DateTimeField(default=timezone.now)
     email_verified = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    is_admin = models.BooleanField(default=False)
     
 
     objects = MyUserManager()
