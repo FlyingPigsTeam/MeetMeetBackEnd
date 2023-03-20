@@ -1,4 +1,5 @@
 from . import serializers
+from base import serializers as base_serializers
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -10,6 +11,7 @@ from django.urls import reverse
 import jwt
 from django.conf import settings
 from django.contrib import auth
+from django.contrib.auth.hashers import make_password
 
 
 @api_view(["POST"])
@@ -36,33 +38,83 @@ def Register(request):
     else:
         return Response({"status": "fail", "message": user_data.errors}, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(["GET"])
 def verifyEmail(request):
     token = request.GET.get('token')
     try:
-        payload = jwt.decode(token,settings.SECRET_KEY, algorithms=['HS256'])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
         userID = payload['user_id']
         user = models.User.objects.get(id=userID)
-        if not user.email_verified :
-            user.email_verified=True
+        if not user.email_verified:
+            user.email_verified = True
             user.save()
-        return Response({'success' : 'user successfully verified'},status=status.HTTP_200_OK)
+        return Response({'success': 'user successfully verified'}, status=status.HTTP_200_OK)
     except jwt.ExpiredSignatureError:
         return Response({'error': 'activation expired'}, status=status.HTTP_400_BAD_REQUEST)
     except jwt.exceptions.DecodeError:
         return Response({'error': 'token is invalid'}, status=status.HTTP_400_BAD_REQUEST)
-    
+
 
 @api_view(["POST"])
 def login(request):
     requestData = serializers.LoginSerializer(data=request.data)
     if requestData.is_valid():
-        user = auth.authenticate(email = request.data.get('email') ,password = request.data.get('password'))
-        if not user :
+        user = auth.authenticate(email=request.data.get(
+            'email'), password=request.data.get('password'))
+        if not user:
             return Response({"error": 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
-        if not user.email_verified: 
+        if not user.email_verified:
             return Response({"error": 'email is not verified'}, status=status.HTTP_400_BAD_REQUEST)
         token = RefreshToken.for_user(user)
-        return Response({'access':str(token.access_token) ,'refresh' : str(token)})
+        return Response({'access': str(token.access_token), 'refresh': str(token)})
     else:
         return Response({"status": "fail", "message": requestData.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["POST"])
+def ForgetPassword(request):
+    email = request.data.get('email')
+    user = models.User.objects.get(email=email)
+    if user is None:
+        return Response({"error": "invalid email"}, status=status.HTTP_400_BAD_REQUEST)
+
+    token = RefreshToken.for_user(user).access_token
+    current_site = str(get_current_site(request))
+    relativeLink = reverse('reset-password')
+    absURL = 'http://'+current_site+relativeLink+'?token='+str(token)
+    email_body = 'Hi ' + user.username + \
+        ' Use link below to reset your password \n '+absURL
+    email_data = {'email_body': email_body,
+                  'email_subject': 'Reset your password', 'to': user.email}
+
+    Util.send_email(email_data)
+
+    return Response({"success": "reset password email sent"}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+def ResetPassword(request):
+    token = request.GET.get('token')
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        fgpass = serializers.ResetPasswordSerializer(data=request.data)
+        if fgpass.is_valid():
+            userID = payload['user_id']
+            user = models.User.objects.get(id=userID)
+            if user.email != fgpass.data['email']:
+                return Response({'error': 'invalid email'}, status=status.HTTP_400_BAD_REQUEST)
+            if not user.email_verified:
+                return Response({'error': 'email is not verified'}, status=status.HTTP_400_BAD_REQUEST)
+
+            password = make_password(fgpass.data['password'])
+            user.password = password
+            user.save()
+            return Response({"success" : "password reset successfully"})
+        else:
+              return Response({"status": "fail", "message": fgpass.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    except jwt.ExpiredSignatureError:
+        return Response({'error': 'activation expired'}, status=status.HTTP_400_BAD_REQUEST)
+    except jwt.exceptions.DecodeError:
+        return Response({'error': 'token is invalid'}, status=status.HTTP_400_BAD_REQUEST)
