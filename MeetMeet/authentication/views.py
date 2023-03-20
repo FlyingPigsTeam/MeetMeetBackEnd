@@ -9,6 +9,7 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 import jwt
 from django.conf import settings
+from django.contrib import auth
 
 
 @api_view(["POST"])
@@ -50,3 +51,18 @@ def verifyEmail(request):
         return Response({'error': 'activation expired'}, status=status.HTTP_400_BAD_REQUEST)
     except jwt.exceptions.DecodeError:
         return Response({'error': 'token is invalid'}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+@api_view(["POST"])
+def login(request):
+    requestData = serializers.LoginSerializer(data=request.data)
+    if requestData.is_valid():
+        user = auth.authenticate(email = request.data.get('email') ,password = request.data.get('password'))
+        if not user :
+            return Response({"error": 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.email_verified: 
+            return Response({"error": 'email is not verified'}, status=status.HTTP_400_BAD_REQUEST)
+        token = RefreshToken.for_user(user)
+        return Response({'access':str(token.access_token) ,'refresh' : str(token)})
+    else:
+        return Response({"status": "fail", "message": requestData.errors}, status=status.HTTP_400_BAD_REQUEST)
