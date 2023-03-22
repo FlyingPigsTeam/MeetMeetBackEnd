@@ -16,4 +16,19 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 class UserSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = auth_models.User
-        fields="__all__"
+        fields="__all__"     
+class categoriesSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = models.Category
+        fields = "__all__"   
+class RoomSerializers(serializers.ModelSerializer):
+    categories = categoriesSerializers(many=True , read_only=True)
+    class Meta:
+        model = models.Room
+        fields = ("title"  ,"room_type" ,"link" , "password" , "description"  , "view_count", "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" )
+    # def validate(self, data):
+    #     if data.get('end', 0) > data.get('maximum_price', 0):
+    #         error = 'Maximum should be greater than minimum'
+    #         raise serializers.ValidationError(error)
+
+    #     return data
