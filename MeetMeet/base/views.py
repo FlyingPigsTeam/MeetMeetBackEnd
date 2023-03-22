@@ -13,7 +13,7 @@ def Home(request):
     return Response({"success" : "base is working"})
 
 class PrivateMeetViewSet(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     serializer_class = RoomSerializers
     def get (self, request):
         user = User.objects.get(username = request.user.username)
