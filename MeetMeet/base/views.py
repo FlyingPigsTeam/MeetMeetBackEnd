@@ -4,17 +4,29 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import get_object_or_404
 from .serializers import RoomSerializers
-from .models import Room , Category
+from .models import Room , Category , Membership
+from authentication.models import User
 from .permissions import IsAdmin
 
 @api_view(["GET"])
 def Home(request):
     return Response({"success" : "base is working"})
 
+class PrivateMeetViewSet(APIView):
+    # permission_classes = [IsAuthenticated]
+    serializer_class = RoomSerializers
+    def get (self, request):
+        user = User.objects.get(username = request.user.username)
+        userRoomsIds = Membership.objects.filter(member_id = user.id , is_member = True)
+        IDs = []
+        for roomId in userRoomsIds:
+            IDs.append(roomId.room_id)
+        userRooms = Room.objects.filter(id__in = IDs)
+        serializer_all = RoomSerializers(instance=userRooms , many = True)
+        return Response({"success" : f"{serializer_all.data}"} , 202)
 class PublicMeetViewSet(APIView):
     permission_classes = [IsAuthenticated] # check is authenticated
     serializers = RoomSerializers
-    
     def get (self, request):
         queryset = Room.objects.all()
         all_serializers = RoomSerializers(instance= queryset , many = True)
