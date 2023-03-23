@@ -8,8 +8,8 @@ class IsAdmin(BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
             return True
-        user = User.objects.get(username = request.user.username)
-        theUser = Membership.objects.filter(room_id = obj.id , member_id = user.id )
+        # user = User.objects.get(username = request.user.username)
+        theUser = Membership.objects.filter(room_id = obj.id , member_id = request.user.id )
         if theUser[0].is_owner == True :
             return True
         return False

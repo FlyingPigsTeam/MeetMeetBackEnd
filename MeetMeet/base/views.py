@@ -17,8 +17,8 @@ class PrivateMeetViewSet(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = RoomSerializers
     def get (self, request):
-        user = User.objects.get(username = request.user.username)
-        userRoomsIds = Membership.objects.filter(member_id = user.id , is_member = True)
+        # user = User.objects.get(username = request.user.id)
+        userRoomsIds = Membership.objects.filter(member_id = request.user.id , is_member = True)
         IDs = []
         for roomId in userRoomsIds:
             IDs.append(roomId.room_id)
