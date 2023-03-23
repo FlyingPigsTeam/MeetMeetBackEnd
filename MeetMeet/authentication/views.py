@@ -24,8 +24,10 @@ def Register(request):
         # verification
         user = models.User.objects.get(email=user_data.data['email'])
         token = RefreshToken.for_user(user).access_token
-        current_site = str(get_current_site(request))
-        relativeLink = reverse('email-verify')
+        # current_site = str(get_current_site(request))
+        current_site = "localhost:3000/"
+        # relativeLink = reverse('email-verify')
+        relativeLink = "email-verify/"
         absURL = 'http://'+current_site+relativeLink+'?token='+str(token)
         email_body = 'Hi ' + user.username + \
             ' Use link below to verify your email \n '+absURL
@@ -65,6 +67,18 @@ def login(request):
         if not user:
             return Response({"error": 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
         if not user.email_verified:
+            token1 = RefreshToken.for_user(user).access_token
+            # current_site = str(get_current_site(request))
+            current_site = "localhost:3000/"
+            # relativeLink = reverse('email-verify')
+            relativeLink = "email-verify/"
+            absURL = 'http://'+current_site+relativeLink+'?token='+str(token1)
+            email_body = 'Hi ' + user.username + \
+                ' Use link below to verify your email \n '+absURL
+            email_data = {'email_body': email_body,
+                        'email_subject': 'Verify Your Email', 'to': user.email}
+
+            Util.send_email(email_data)
             return Response({"error": 'email is not verified'}, status=status.HTTP_400_BAD_REQUEST)
         token = RefreshToken.for_user(user)
         return Response({'access': str(token.access_token), 'refresh': str(token)})
@@ -75,13 +89,16 @@ def login(request):
 @api_view(["POST"])
 def ForgetPassword(request):
     email = request.data.get('email')
-    user = models.User.objects.get(email=email)
-    if user is None:
+    try:
+        user = models.User.objects.get(email=email)
+    except models.User.DoesNotExist:
         return Response({"error": "invalid email"}, status=status.HTTP_400_BAD_REQUEST)
 
     token = RefreshToken.for_user(user).access_token
-    current_site = str(get_current_site(request))
-    relativeLink = reverse('reset-password')
+    # current_site = str(get_current_site(request))
+    current_site = "localhost:3000/"
+    # relativeLink = reverse('email-verify')
+    relativeLink = "reset-password/"
     absURL = 'http://'+current_site+relativeLink+'?token='+str(token)
     email_body = 'Hi ' + user.username + \
         ' Use link below to reset your password \n '+absURL
@@ -98,22 +115,29 @@ def ResetPassword(request):
     token = request.GET.get('token')
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
-        fgpass = serializers.ResetPasswordSerializer(data=request.data)
-        if fgpass.is_valid():
-            userID = payload['user_id']
-            user = models.User.objects.get(id=userID)
-            if user.email != fgpass.data['email']:
-                return Response({'error': 'invalid email'}, status=status.HTTP_400_BAD_REQUEST)
-            if not user.email_verified:
-                return Response({'error': 'email is not verified'}, status=status.HTTP_400_BAD_REQUEST)
+        userID = payload['user_id']
+        user = models.User.objects.get(id=userID)
+        if not user:
+            return Response({'error': 'unknown user'}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.email_verified:
+            token1 = RefreshToken.for_user(user).access_token
+            # current_site = str(get_current_site(request))
+            current_site = "localhost:3000/"
+            # relativeLink = reverse('email-verify')
+            relativeLink = "email-verify/"
+            absURL = 'http://'+current_site+relativeLink+'?token='+str(token1)
+            email_body = 'Hi ' + user.username + \
+                ' Use link below to verify your email \n '+absURL
+            email_data = {'email_body': email_body,
+                        'email_subject': 'Verify Your Email', 'to': user.email}
 
-            password = make_password(fgpass.data['password'])
-            user.password = password
-            user.save()
-            return Response({"success" : "password reset successfully"})
-        else:
-              return Response({"status": "fail", "message": fgpass.errors}, status=status.HTTP_400_BAD_REQUEST)
+            Util.send_email(email_data) 
+            return Response({'error': 'email is not verified'}, status=status.HTTP_400_BAD_REQUEST)
 
+        password = make_password(request.data.get('password'))
+        user.password = password
+        user.save()
+        return Response({"success": "password reset successfully"}, status=status.HTTP_200_OK)
     except jwt.ExpiredSignatureError:
         return Response({'error': 'activation expired'}, status=status.HTTP_400_BAD_REQUEST)
     except jwt.exceptions.DecodeError:
