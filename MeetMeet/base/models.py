@@ -28,7 +28,7 @@ class Membership(models.Model):
     is_owner = models.BooleanField(default=False)  
     is_member = models.BooleanField(default=False)
     is_requested = models.BooleanField(default=False)
-    ## 0 for pending , 1 for rejected , 2 for accepted
+    ## 0 for pending , 1 for rejected , 2 for accepted , 3 for admin
     request_status = models.PositiveSmallIntegerField(default=0) 
 
 class BriefPlan(models.Model):

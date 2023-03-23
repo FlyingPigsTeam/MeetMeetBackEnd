@@ -36,6 +36,7 @@ class PublicMeetViewSet(APIView):
         room_serializers = RoomSerializers(data = request.data)
         if room_serializers.is_valid():
             room = room_serializers.save()
+            owner = Membership.objects.create(room_id = room.id , is_owner = True , is_member =True , member_id = request.user.id , is_requested = False , request_status = 3 )
             return Response({"success" : "created!"} , status=HTTP_201_CREATED)
         else :
             return Response({"fail" : "not valid data"} , status=HTTP_406_NOT_ACCEPTABLE)
