@@ -14,7 +14,7 @@ def Home(request):
     return Response({"success" : "base is working"})
 
 class PrivateMeetViewSet(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     serializer_class = RoomSerializers
     def get (self, request):
         user = User.objects.get(username = request.user.username)
@@ -26,7 +26,7 @@ class PrivateMeetViewSet(APIView):
         serializer_all = RoomSerializers(instance=userRooms , many = True)
         return Response( serializer_all.data , status=HTTP_200_OK)
 class PublicMeetViewSet(APIView):
-    # permission_classes = [IsAuthenticated] # check is authenticated
+    permission_classes = [IsAuthenticated] # check is authenticated
     serializers = RoomSerializers
     def get (self, request):
         queryset = Room.objects.all()
@@ -42,7 +42,7 @@ class PublicMeetViewSet(APIView):
 class PublicMeetDeleteUpdate(APIView):
     # if admin 
     serializer_class  = RoomSerializers
-    # permission_classes = [IsAdmin , IsAuthenticated] # check is authenticated & check the user sends & add the creator 
+    permission_classes = [IsAdmin , IsAuthenticated] # check is authenticated & check the user sends & add the creator 
     def put (self, request , room_id):
         room = get_object_or_404(Room , id = room_id)
         self.check_object_permissions(request, room)
