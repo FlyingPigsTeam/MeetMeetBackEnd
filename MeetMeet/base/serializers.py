@@ -25,7 +25,7 @@ class RoomSerializers(serializers.ModelSerializer):
     categories = categoriesSerializers(many=True ) 
     class Meta:
         model = models.Room
-        fields = ("title"  ,"room_type" ,"link" , "password" , "description" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" )
+        fields = ("title"  ,"room_type" ,"link" , "password" , "description"  , "view_count", "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" )
     def create(self, validated_data):
         category_data = validated_data.pop('categories')
         room = models.Room.objects.create(**validated_data)
@@ -56,7 +56,3 @@ class RoomSerializers(serializers.ModelSerializer):
         instance.save()
         
         return instance
-class MembershipSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.Membership
-        fields = "__all__"
