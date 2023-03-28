@@ -19,13 +19,12 @@ class Room(models.Model):
     open_status = models.PositiveSmallIntegerField(default=1)
     members = models.ManyToManyField(auth_model.User , through="Membership")
     categories = models.ManyToManyField(Category)
-    
 
 
 class Membership(models.Model):
     member = models.ForeignKey(auth_model.User , on_delete=models.CASCADE)
     room = models.ForeignKey(Room , on_delete=models.CASCADE)
-    is_owner = models.BooleanField(default=False)  
+    is_owner = models.BooleanField(default=False)
     is_member = models.BooleanField(default=False)
     is_requested = models.BooleanField(default=False)
     ## 0 for pending , 1 for rejected , 2 for accepted , 3 for admin
