@@ -25,9 +25,10 @@ class RoomSerializers(serializers.ModelSerializer):
     categories = categoriesSerializers(many=True ) 
     class Meta:
         model = models.Room
-        fields = ("title"  ,"room_type" ,"link" , "password" , "description" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" )
+        fields = ("title"  ,"room_type" ,"link" , "password" , "description" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" , "members" )
     def create(self, validated_data):
         category_data = validated_data.pop('categories')
+        # link = validated_data.pop("link")
         room = models.Room.objects.create(**validated_data)
         for category in category_data:
             id_category = models.Category.objects.get(name=category["name"])
@@ -55,6 +56,12 @@ class RoomSerializers(serializers.ModelSerializer):
         instance.save()
         
         return instance
+class RoomDynamicSerializer(DynamicFieldsModelSerializer):
+    categories = categoriesSerializers(many=True , read_only=True)
+    members = UserSerializer(many=True , read_only=True , fields = ("username" , "picture_path" , "bio")) # fields = ("username", "password")
+    class Meta:
+        model = models.Room
+        fields = "__all__"
 class MembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Membership

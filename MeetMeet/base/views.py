@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import get_object_or_404
 from rest_framework.status import HTTP_406_NOT_ACCEPTABLE , HTTP_201_CREATED , HTTP_200_OK, HTTP_202_ACCEPTED , HTTP_404_NOT_FOUND
 from django.db.models import Q
-from .serializers import RoomSerializers , MembershipSerializer , UserSerializer
+from .serializers import RoomSerializers , MembershipSerializer , UserSerializer , RoomDynamicSerializer
 from .models import Room , Category , Membership
 from authentication.models import User
 from .permissions import IsAdmin
@@ -28,11 +28,11 @@ class PrivateMeetViewSet(APIView):
         return Response( serializer_all.data , status=HTTP_200_OK)
 class PublicMeetViewSet(APIView):
     permission_classes = [IsAuthenticated] # check is authenticated
-    serializers = RoomSerializers
+    serializers = RoomSerializers 
     def get (self, request): # get all of rooms
         try:
             queryset = Room.objects.all()
-            all_serializers = RoomSerializers(queryset , many = True)
+            all_serializers = RoomDynamicSerializer(queryset , many = True , fields = ("title"  ,"room_type" ,"link" , "password" , "description" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" , "members" ))
             return Response(all_serializers.data , status=HTTP_202_ACCEPTED)
         except RoomSerializers.DoesNotExist:
             return Response({"fail" : "Not found"} , status=HTTP_404_NOT_FOUND)
