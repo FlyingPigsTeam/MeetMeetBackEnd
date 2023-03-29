@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import get_object_or_404
 from rest_framework.status import HTTP_406_NOT_ACCEPTABLE , HTTP_201_CREATED , HTTP_200_OK, HTTP_202_ACCEPTED , HTTP_404_NOT_FOUND
-from django.db.models import Q
+from django.db.models import Q , Count
 from .serializers import RoomSerializers , MembershipSerializer , UserSerializer , RoomDynamicSerializer
 from .models import Room , Category , Membership
 from authentication.models import User
@@ -27,14 +27,14 @@ class PrivateMeetViewSet(APIView):
         serializer_all = RoomSerializers(instance=userRooms , many = True)
         return Response( serializer_all.data , status=HTTP_200_OK)
 class PublicMeetViewSet(APIView):
-    permission_classes = [IsAuthenticated] # check is authenticated
+    permission_classes = [IsAuthenticated]
     serializers = RoomSerializers 
     def get (self, request): # get all of rooms
         try:
-            queryset = Room.objects.all()
+            queryset = Room.objects.filter(open_status = 1)
             all_serializers = RoomDynamicSerializer(queryset , many = True , fields = ("title"  ,"room_type" ,"link" , "password" , "description" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" , "members" ))
             return Response(all_serializers.data , status=HTTP_202_ACCEPTED)
-        except RoomSerializers.DoesNotExist:
+        except all_serializers.DoesNotExist:
             return Response({"fail" : "Not found"} , status=HTTP_404_NOT_FOUND)
     def post (self, request): # create a room
         room_serializers = RoomSerializers(data=request.data)
@@ -85,6 +85,10 @@ class ResponseToRequests(APIView): # join the room must add
     def post (self, request , room_id): # add user to the room - have params(username) 
         username = request.GET.get('username')
         user = get_object_or_404(User , username = username) 
+        room = get_object_or_404(Room , id = room_id)
+        maxmember = room.maximum_member_count
+        if maxmember == Membership.objects.filter(room_id=room_id).count() :
+            return Response({"faild" : "room is full"}, status=HTTP_406_NOT_ACCEPTABLE) 
         if Membership.objects.filter(room_id=room_id ,member_id = user.id ).exists():
             return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
         Membership.objects.create(member_id = user.id , room_id = room_id , is_owner = False , is_member = True , is_requested = False , request_status = 0 )
@@ -110,8 +114,12 @@ class ResponseToRequests(APIView): # join the room must add
                 member_serializer = MembershipSerializer(members , many = True)
                 return Response ( member_serializer.data , status=HTTP_200_OK )
             else:
-                user = get_object_or_404(User , username = username)
-                user_serializer = UserSerializer(user)
+                try:
+                    # breakpoint()
+                    users = User.objects.filter(username__icontains = username)
+                except:
+                    Response({"fail" : "not found any member"} , status=HTTP_404_NOT_FOUND)
+                user_serializer = UserSerializer(users , many = True)
                 return Response(user_serializer.data , status=HTTP_200_OK)
     def put (self, request , room_id): # accept or reject requests or add or promote a member
         request_id = request.GET.get('request_id')
