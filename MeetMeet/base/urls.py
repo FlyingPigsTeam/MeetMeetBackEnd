@@ -7,5 +7,5 @@ urlpatterns = [
     path("rooms/<int:room_id>", views.PublicMeetDeleteUpdate.as_view()),
     path("my-rooms/<int:room_id>", views.PublicMeetDeleteUpdate.as_view()),
     path("my-rooms", views.PrivateMeetViewSet.as_view()),
-    path("search", views.SearchRoom),
+    path("profile",views.Profile)
 ]

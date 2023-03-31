@@ -1,14 +1,18 @@
 from django.db.models import Q
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import get_object_or_404
-from rest_framework.status import HTTP_406_NOT_ACCEPTABLE, HTTP_201_CREATED, HTTP_200_OK, HTTP_202_ACCEPTED
-from .serializers import RoomSerializers
+from rest_framework.status import HTTP_406_NOT_ACCEPTABLE, HTTP_201_CREATED, HTTP_200_OK, HTTP_202_ACCEPTED, HTTP_400_BAD_REQUEST
+from .serializers import RoomSerializers ,RoomCardSerializers , UserSerializer
 from .models import Room, Category, Membership
 from authentication.models import User
 from .permissions import IsAdmin
+import datetime
+from django.db.models import F
+from django.db.models import Count
+from rest_framework.pagination import PageNumberPagination
 
 
 @api_view(["GET"])
@@ -16,19 +20,22 @@ def Home(request):
     return Response({"success": "base is working"})
 
 
-@api_view(["POST"])
-def SearchRoom(request):
-    categories = request.data['categories']
-    start_date = request.data['start_date']
-    end_date = request.data['end_date']
-    member_count = request.data['member_count']
-    rooms = Room.objects.filter(Q(categories__name__in=categories) & Q(
-        start_date__gte=start_date) & Q(end_date__lte=end_date)  & Q(maximum_member_count=member_count))
-    
-    
-    jsonResponse = RoomSerializers(rooms, many=True).data
-    return Response(jsonResponse)
+@api_view(['GET','PUT'])
+@permission_classes([IsAuthenticated])
+def Profile(request):
+    user = request.user
+    if request.method == 'GET':
+        jsonResponse = UserSerializer(user,fields = ["username" , "email" , "first_name" , "last_name" , "bio"]).data
+        return Response(jsonResponse)
 
+    if request.method == 'PUT':
+        data = UserSerializer(instance = user , data=request.data , partial=True)
+        if data.is_valid():
+            err = data.save()
+            if err == -1 :
+                return Response({"message" : "current password is incorrect"} , status=HTTP_400_BAD_REQUEST)
+        jsonResponse = UserSerializer(user,fields = ["username" , "email" , "first_name" , "last_name" , "bio"]).data
+        return Response({"message":"profile edited successfully","data":jsonResponse} , status=HTTP_200_OK)
 
 class PrivateMeetViewSet(APIView):
     permission_classes = [IsAuthenticated]
@@ -47,13 +54,80 @@ class PrivateMeetViewSet(APIView):
 
 
 class PublicMeetViewSet(APIView):
-    permission_classes = [IsAuthenticated]  # check is authenticated
+    # permission_classes = [IsAuthenticated]  # check is authenticated
     serializers = RoomSerializers
 
     def get(self, request):
-        queryset = Room.objects.all()
-        all_serializers = RoomSerializers(queryset, many=True)
-        return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
+        # filter by category & time period & number of members
+
+        # first need to filter valid events (events that have not started yet)
+        rooms = Room.objects.filter(
+            start_date__gte=datetime.datetime.now().date())
+        rooms= Room.objects.all()
+
+        # ---------------------filter--------------------
+
+        # getting possible filter params
+        categories = request.GET.getlist('categories')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        member_count = request.GET.get('member_count')
+
+        # checking if param exists or not and if exists do the filtering
+        if len(categories) != 0:
+            rooms = rooms.filter(categories__name__in=categories)
+        if start_date is not None:
+            rooms = rooms.filter(start_date__gte=start_date)
+        if end_date is not None:
+            rooms = rooms.filter(end_date__lte=end_date)
+        if member_count is not None:
+            member_count = int(member_count)
+            rooms = rooms.filter(maximum_member_count=member_count)
+
+        # -------------------- sort----------------------
+
+        # getting all possilbe sort params
+
+        # time represents sorting by start_time
+        time = request.GET.get('time')
+        # duration represents sorting by the time duration of event
+        duration = request.GET.get('duration')
+        # capacity represents sorting by more or less vacant events
+        capacity = request.GET.get('capacity')
+        # order=1 for asc & 0 for dsc
+        order = request.GET.get('order')
+
+        # sort according to available sort params
+        if duration is not None:
+            rooms = rooms.annotate(sort_param=F('end_date')-F('start_date'))
+            if order == '1':
+                rooms = rooms.order_by('sort_param')
+            else:
+                rooms = rooms.order_by('-sort_param')
+
+        if time is not None:
+            if order == '1':
+                rooms = rooms.order_by('start_date')
+            else:
+                rooms = rooms.order_by('-start_date')
+
+        if capacity is not None:
+            rooms = rooms.annotate(sort_param=F(
+                'maximum_member_count')-Count('members'))
+            if order == '1':
+                rooms = rooms.order_by('sort_param')
+            else:
+                rooms = rooms.order_by('-sort_param')
+                
+
+    #-------------------pagination---------------------------
+
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+        jsonResponsePaginated = paginator.paginate_queryset(rooms, request)
+        jsonResponse = RoomCardSerializers(jsonResponsePaginated, many=True).data
+        return paginator.get_paginated_response(jsonResponse)
 
     def post(self, request):
         room_serializers = RoomSerializers(data=request.data)
