@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import get_object_or_404
 from rest_framework.status import HTTP_406_NOT_ACCEPTABLE , HTTP_201_CREATED , HTTP_200_OK, HTTP_202_ACCEPTED , HTTP_404_NOT_FOUND ,  HTTP_400_BAD_REQUEST
 from django.db.models import Q , Count
-from .serializers import RoomSerializers , MembershipSerializer , UserSerializer , RoomDynamicSerializer , RoomCardSerializers
+from .serializers import RoomSerializers , MembershipSerializer , UserSerializer , RoomDynamicSerializer , RoomCardSerializers , ProfileSerializer
 from .models import Room , Category , Membership
 from authentication.models import User
 from .permissions import IsAdmin
@@ -26,17 +26,17 @@ def Home(request):
 def Profile(request):
     user = request.user
     if request.method == 'GET':
-        jsonResponse = UserSerializer(
+        jsonResponse = ProfileSerializer(
             user, fields=["username", "email", "first_name", "last_name", "bio"]).data
         return Response(jsonResponse)
 
     if request.method == 'PUT':
-        data = UserSerializer(instance=user, data=request.data, partial=True)
+        data = ProfileSerializer(instance=user, data=request.data, partial=True)
         if data.is_valid():
             err = data.save()
             if err == -1:
                 return Response({"message": "current password is incorrect"}, status=HTTP_400_BAD_REQUEST)
-        jsonResponse = UserSerializer(
+        jsonResponse = ProfileSerializer(
             user, fields=["username", "email", "first_name", "last_name", "bio"]).data
         return Response({"message": "profile edited successfully", "data": jsonResponse}, status=HTTP_200_OK)
 
@@ -55,8 +55,11 @@ def randomlinks(request , hashid):
     except:
         return Response({"fail" : "wrong link"},status=HTTP_406_NOT_ACCEPTABLE)
     room = get_object_or_404(Room, id=room_id)
+    user_id = request.user.id
+    if Membership.objects.filter(room_id=room_id ,member_id = user_id ).exists():
+        return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
     if room.link == hashid:
-        all_serializers = RoomDynamicSerializer(room)
+        all_serializers = RoomDynamicSerializer(room , context={'request': request , 'room_id' : room_id})
         return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
     else:
         return Response({"fail" : "wrong link"},status=HTTP_406_NOT_ACCEPTABLE)
@@ -92,8 +95,9 @@ class PublicMeetViewSet(APIView):
         # filter by category & time period & number of members
 
         # first need to filter valid events (events that have not started yet)
-        rooms = Room.objects.filter(
-            start_date__gte=datetime.datetime.now().date())
+        # rooms = Room.objects.filter(
+        #     start_date__gte=datetime.datetime.now().date())
+        rooms = Room.objects.all()
         # ---------------------filter--------------------
         # getting possible filter params
         categories = request.GET.getlist('categories')
@@ -178,7 +182,7 @@ class PublicMeetDeleteUpdate(APIView):
         return Response({"success" : "user request sent"} , status=HTTP_202_ACCEPTED)
     def get (self, request , room_id): # see the room details
         room = get_object_or_404(Room, id=room_id)
-        all_serializers = RoomDynamicSerializer(room)
+        all_serializers = RoomDynamicSerializer(room ,  context={'request': request , 'room_id' : room_id})
         return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
     def put (self, request , room_id): # change the room / link of the room - have params (link)
         link = request.GET.get('link')
@@ -220,8 +224,9 @@ class ResponseToRequests(APIView): # join the room must add
         username = request.GET.get('username')
         user = get_object_or_404(User , username = username) 
         room = get_object_or_404(Room , id = room_id)
+        self.check_object_permissions(request, room)
         maxmember = room.maximum_member_count
-        if maxmember == Membership.objects.filter(room_id=room_id).count() :
+        if maxmember == Membership.objects.filter(room_id=room_id , is_member = True).count() :
             return Response({"faild" : "room is full"}, status=HTTP_406_NOT_ACCEPTABLE) 
         if Membership.objects.filter(room_id=room_id ,member_id = user.id ).exists():
             return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
@@ -255,9 +260,16 @@ class ResponseToRequests(APIView): # join the room must add
                 user_serializer = UserSerializer(users , many = True)
                 return Response(user_serializer.data , status=HTTP_200_OK)
     def put (self, request , room_id): # accept or reject requests or add or promote a member
+        add = request.GET.get('add')
+        if add is 1 :
+            maxmember = room.maximum_member_count   
+            if maxmember == Membership.objects.filter(room_id=room_id , is_member = True).count() :
+                return Response({"faild" : "room is full"}, status=HTTP_406_NOT_ACCEPTABLE) 
+            if Membership.objects.filter(room_id=room_id ,member_id = request_id ).exists():
+                return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE) 
         request_id = request.GET.get('request_id')
         room = get_object_or_404(Room , id = room_id)
-        self.check_object_permissions(request, room)   
+        self.check_object_permissions(request, room) 
         try:
             request_member = Membership.objects.get(member_id = request_id)
         except:

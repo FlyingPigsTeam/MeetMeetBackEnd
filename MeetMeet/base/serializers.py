@@ -14,6 +14,11 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
                 self.fields.pop(field_name)
 
 class UserSerializer(DynamicFieldsModelSerializer):
+    class Meta:
+        model = auth_models.User
+        fields = "__all__"
+
+class ProfileSerializer(DynamicFieldsModelSerializer):
     username = serializers.CharField(max_length=150)
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
@@ -89,10 +94,13 @@ class RoomSerializers(serializers.ModelSerializer):
 class RoomDynamicSerializer(DynamicFieldsModelSerializer):
     categories = categoriesSerializers(many=True , read_only=True)
     members = UserSerializer(many=True , read_only=True , fields = ("username" , "picture_path" , "bio")) # fields = ("username", "password")
+    is_admin = serializers.SerializerMethodField()
     # tasks = TaskSerializer(many=True , read_only=True , fields = ("title" , "priority"))
     class Meta:
         model = models.Room
         fields = "__all__"
+    def get_is_admin(self, instance):
+        return instance.members.through.objects.filter(member_id = self.context['request'].user.id , room_id = self.context['room_id'] ).values("is_owner")[0]["is_owner"]
 class MembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Membership
@@ -105,4 +113,4 @@ class RoomCardSerializers(DynamicFieldsModelSerializer):
         model = models.Room
         fields = ("id" , "title" , "maximum_member_count","start_date","end_date","main_picture_path","categories","member_count")
     def get_member_count(self, instance):
-      return instance.members.count()
+        return instance.members.count()
