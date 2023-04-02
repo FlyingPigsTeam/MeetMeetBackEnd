@@ -14,10 +14,35 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
                 self.fields.pop(field_name)
 
 class UserSerializer(DynamicFieldsModelSerializer):
+    username = serializers.CharField(max_length=150)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    current_password = serializers.CharField(
+        max_length=68, min_length=3)
+    new_password = serializers.CharField(
+        max_length=68, min_length=3)
     class Meta:
         model = auth_models.User
-        fields="__all__"     
-class categoriesSerializers(serializers.ModelSerializer):
+        fields=("username" , "email" , "first_name" , "last_name" , "bio" , "current_password" , "new_password")
+    def update(self,instance , validated_data):
+        instance.bio = validated_data.get('bio' , instance.bio)
+        instance.first_name = validated_data.get('first_name' , instance.first_name)
+        instance.last_name =  validated_data.get('last_name' , instance.last_name)
+        password = validated_data.get("current_password")
+        if password is not None:
+            if not instance.check_password(password):
+               return -1
+            else :
+                instance.set_password(validated_data.get("new_password"))
+                instance.save()
+                return 1
+
+        instance.save()
+        return instance
+
+
+class categoriesSerializers(DynamicFieldsModelSerializer):
     class Meta:
         model = models.Category
         fields = ("name" , "id")   
@@ -29,7 +54,7 @@ class RoomSerializers(serializers.ModelSerializer):
     categories = categoriesSerializers(many=True ) 
     class Meta:
         model = models.Room
-        fields = ("title"  ,"room_type" , "password" , "main_picture_path", "description" ,"link" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories"  )
+        fields = ("title"  ,"room_type" , "password" , "main_picture_path", "description" ,"link" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" ,"is_premium"  )
     def create(self, validated_data):
         category_data = validated_data.pop('categories')
         # link = validated_data.pop("link")
@@ -60,6 +85,7 @@ class RoomSerializers(serializers.ModelSerializer):
         instance.save()
         
         return instance
+
 class RoomDynamicSerializer(DynamicFieldsModelSerializer):
     categories = categoriesSerializers(many=True , read_only=True)
     members = UserSerializer(many=True , read_only=True , fields = ("username" , "picture_path" , "bio")) # fields = ("username", "password")
@@ -71,3 +97,12 @@ class MembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Membership
         fields = "__all__"
+        
+class RoomCardSerializers(DynamicFieldsModelSerializer):
+    categories = categoriesSerializers(many=True , fields=["name"] ) 
+    member_count = serializers.SerializerMethodField()
+    class Meta:
+        model = models.Room
+        fields = ("id" , "title" , "maximum_member_count","start_date","end_date","main_picture_path","categories","member_count")
+    def get_member_count(self, instance):
+      return instance.members.count()
