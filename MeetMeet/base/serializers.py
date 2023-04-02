@@ -21,11 +21,15 @@ class categoriesSerializers(serializers.ModelSerializer):
     class Meta:
         model = models.Category
         fields = ("name" , "id")   
+# class TaskSerializer(DynamicFieldsModelSerializer):
+#     class Meta:
+#         models = models.Task
+#         fields = "__all__"
 class RoomSerializers(serializers.ModelSerializer):
     categories = categoriesSerializers(many=True ) 
     class Meta:
         model = models.Room
-        fields = ("title"  ,"room_type" ,"link" , "password" , "description" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" , "members" )
+        fields = ("title"  ,"room_type" , "password" , "main_picture_path", "description" ,"link" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories"  )
     def create(self, validated_data):
         category_data = validated_data.pop('categories')
         # link = validated_data.pop("link")
@@ -59,6 +63,7 @@ class RoomSerializers(serializers.ModelSerializer):
 class RoomDynamicSerializer(DynamicFieldsModelSerializer):
     categories = categoriesSerializers(many=True , read_only=True)
     members = UserSerializer(many=True , read_only=True , fields = ("username" , "picture_path" , "bio")) # fields = ("username", "password")
+    # tasks = TaskSerializer(many=True , read_only=True , fields = ("title" , "priority"))
     class Meta:
         model = models.Room
         fields = "__all__"

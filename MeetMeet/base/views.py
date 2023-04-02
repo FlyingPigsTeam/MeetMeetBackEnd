@@ -1,4 +1,4 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view , authentication_classes , permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -9,10 +9,39 @@ from .serializers import RoomSerializers , MembershipSerializer , UserSerializer
 from .models import Room , Category , Membership
 from authentication.models import User
 from .permissions import IsAdmin
+import base64
 
 @api_view(["GET"])
 def Home(request):
     return Response({"success" : "base is working"})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def randomlinks(request , hashid):
+    try:
+        room_id_version = base64.b64decode(hashid).decode("utf-8")
+        listof = room_id_version.split('X')
+        try:
+            room_id = int(listof[0])
+            version = listof[1]
+        except:
+            return Response({"fail" : "wrong link"},status=HTTP_406_NOT_ACCEPTABLE)
+    except:
+        return Response({"fail" : "wrong link"},status=HTTP_406_NOT_ACCEPTABLE)
+    room = get_object_or_404(Room, id=room_id)
+    if room.link == hashid:
+        all_serializers = RoomDynamicSerializer(room)
+        return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
+    else:
+        return Response({"fail" : "wrong link"},status=HTTP_406_NOT_ACCEPTABLE)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def userInfo(request , username): # get the info of the user
+    user = get_object_or_404(User, username=username)
+    user_serializer = UserSerializer(user)
+    return Response(user_serializer.data, status=HTTP_200_OK)
+
 
 class PrivateMeetViewSet(APIView):
     permission_classes = [IsAuthenticated]
@@ -29,7 +58,7 @@ class PrivateMeetViewSet(APIView):
 class PublicMeetViewSet(APIView):
     permission_classes = [IsAuthenticated]
     serializers = RoomSerializers 
-    def get (self, request): # get all of rooms
+    def get (self, request): # get all of rooms    
         try:
             queryset = Room.objects.filter(open_status = 1)
             all_serializers = RoomDynamicSerializer(queryset , many = True , fields = ("title"  ,"room_type" ,"link" , "password" , "description" , "start_date" , "end_date" , "maximum_member_count" , "open_status" , "categories" , "members" ))
@@ -40,9 +69,14 @@ class PublicMeetViewSet(APIView):
         room_serializers = RoomSerializers(data=request.data)
         if room_serializers.is_valid():
             room = room_serializers.save()
+            data_string = str(room.id) + "X01"
+            data_bytes = data_string.encode("utf-8")
+            link_created = base64.b64encode( data_bytes ) # hashing by id + X0x , x = version of hashing
+            listofparams = link_created.decode("utf-8").split("'")
+            Room.objects.filter(pk=room.id).update(link = listofparams[0])
             owner = Membership.objects.create(
                 room_id=room.id, is_owner=True, is_member=True, member_id=request.user.id, is_requested=False, request_status=3)
-            return Response({"success": "created!"}, status=HTTP_201_CREATED)
+            return Response({"success": link_created}, status=HTTP_201_CREATED)
         else:
             return Response({"fail": "not valid data"}, status=HTTP_406_NOT_ACCEPTABLE)
 
@@ -60,20 +94,36 @@ class PublicMeetDeleteUpdate(APIView):
         return Response({"success" : "user request sent"} , status=HTTP_202_ACCEPTED)
     def get (self, request , room_id): # see the room details
         room = get_object_or_404(Room, id=room_id)
-        all_serializers = RoomSerializers(room)
+        all_serializers = RoomDynamicSerializer(room)
         return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
-    def put (self, request , room_id): # change the room 
-        room = get_object_or_404(Room , id = room_id)
-        self.check_object_permissions(request, room)
-        car_serializer = RoomSerializers(
-            instance= room ,
-            data= request.data,
-            partial = True
-        )
-        if car_serializer.is_valid():
-            car_serializer.save()
-            return Response({"success" : "added!"} , status=HTTP_202_ACCEPTED)
-        return Response({"fail" : car_serializer.errors} , status=HTTP_406_NOT_ACCEPTABLE)
+    def put (self, request , room_id): # change the room / link of the room - have params (link)
+        link = request.GET.get('link')
+        if link is None: # change infos
+            room = get_object_or_404(Room , id = room_id)
+            self.check_object_permissions(request, room)
+            car_serializer = RoomSerializers(
+                instance= room ,
+                data= request.data,
+                partial = True
+            )
+            if car_serializer.is_valid():
+                car_serializer.save()
+                return Response({"success" : "added!"} , status=HTTP_202_ACCEPTED)
+            return Response({"fail" : car_serializer.errors} , status=HTTP_406_NOT_ACCEPTABLE)
+        else: # change the link
+            room = get_object_or_404(Room , id = room_id)
+            self.check_object_permissions(request, room)
+            hashid = room.link
+            room_id_version = base64.b64decode(hashid).decode("utf-8")
+            listof = room_id_version.split('X')
+            room_id = int(listof[0])
+            version = listof[1]
+            data_string = str(room_id) + 'X' + str(int(version) + 1) 
+            data_bytes = data_string.encode("utf-8")
+            link_created = base64.b64encode( data_bytes ) # hashing by id + X0x , x = version of hashing
+            listofparams = link_created.decode("utf-8").split("'")
+            Room.objects.filter(pk=room.id).update(link = listofparams[0])
+            return Response({"success": link_created}, status=HTTP_201_CREATED)
     def delete (self, request , room_id): # delete the room
         room = get_object_or_404(Room , id = room_id)
         self.check_object_permissions(request , room)
@@ -106,7 +156,7 @@ class ResponseToRequests(APIView): # join the room must add
             return Response(request_serializer.data , status=HTTP_202_ACCEPTED)
         else : # show the members
             username = request.GET.get('username')
-            if username is None :
+            if username is None : 
                 try:
                     members = Membership.objects.filter(room_id=room_id , is_member = True)
                 except:
@@ -115,7 +165,6 @@ class ResponseToRequests(APIView): # join the room must add
                 return Response ( member_serializer.data , status=HTTP_200_OK )
             else:
                 try:
-                    # breakpoint()
                     users = User.objects.filter(username__icontains = username)
                 except:
                     Response({"fail" : "not found any member"} , status=HTTP_404_NOT_FOUND)
