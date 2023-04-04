@@ -113,4 +113,4 @@ class RoomCardSerializers(DynamicFieldsModelSerializer):
         model = models.Room
         fields = ("id" , "title" , "maximum_member_count","start_date","end_date","main_picture_path","categories","member_count")
     def get_member_count(self, instance):
-        return instance.members.count()
+        return  models.Membership.objects.filter(room_id=instance.id, is_member=True).count()
