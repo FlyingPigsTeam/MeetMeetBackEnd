@@ -50,7 +50,7 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
 class categoriesSerializers(DynamicFieldsModelSerializer):
     class Meta:
         model = models.Category
-        fields = ("name" , "id")   
+        fields = ("name" , "id") 
 # class TaskSerializer(DynamicFieldsModelSerializer):
 #     class Meta:
 #         models = models.Task
@@ -93,14 +93,23 @@ class RoomSerializers(serializers.ModelSerializer):
 
 class RoomDynamicSerializer(DynamicFieldsModelSerializer):
     categories = categoriesSerializers(many=True , read_only=True)
-    members = UserSerializer(many=True , read_only=True , fields = ("username" , "picture_path" , "bio")) # fields = ("username", "password")
+    room_members = serializers.SerializerMethodField()
     is_admin = serializers.SerializerMethodField()
     # tasks = TaskSerializer(many=True , read_only=True , fields = ("title" , "priority"))
     class Meta:
         model = models.Room
-        fields = "__all__"
+        # fields = "__all__"
+        exclude = ('members', )
     def get_is_admin(self, instance):
         return instance.members.through.objects.filter(member_id = self.context['request'].user.id , room_id = self.context['room_id'] ).values("is_owner")[0]["is_owner"]
+    def get_room_members(self, instance):
+        test = instance.members.through.objects.filter(is_member = True , room_id = self.context['room_id'] ).values("member_id")
+        IDs = []
+        for item in test:
+            IDs.append(item["member_id"])
+        member_infos = auth_models.User.objects.filter(id__in = IDs)
+        test_serialized = UserSerializer(member_infos , many = True ,fields = ("username" , "picture_path" , "bio"))
+        return test_serialized.data
 class MembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Membership
