@@ -111,6 +111,7 @@ class RoomDynamicSerializer(DynamicFieldsModelSerializer):
         test_serialized = UserSerializer(member_infos , many = True ,fields = ("username" , "picture_path" , "bio"))
         return test_serialized.data
 class MembershipSerializer(serializers.ModelSerializer):
+    members = UserSerializer(many=True , read_only=True)
     class Meta:
         model = models.Membership
         fields = "__all__"
@@ -123,3 +124,8 @@ class RoomCardSerializers(DynamicFieldsModelSerializer):
         fields = ("id" , "title" , "maximum_member_count","start_date","end_date","main_picture_path","categories","member_count")
     def get_member_count(self, instance):
         return  models.Membership.objects.filter(room_id=instance.id, is_member=True).count()
+class ShowMembershipSerializer(DynamicFieldsModelSerializer):
+    member = UserSerializer(read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name") )
+    class Meta:
+        model = models.Membership
+        fields = ["is_owner" , "is_member" , "is_requested" ,"request_status" , "member" ]

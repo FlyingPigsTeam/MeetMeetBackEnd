@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import get_object_or_404
 from rest_framework.status import HTTP_406_NOT_ACCEPTABLE, HTTP_201_CREATED, HTTP_200_OK, HTTP_202_ACCEPTED, HTTP_404_NOT_FOUND,  HTTP_400_BAD_REQUEST
 from django.db.models import Q, Count
-from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer
+from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer , ShowMembershipSerializer
 from .models import Room, Category, Membership
 from authentication.models import User
 from .permissions import IsAdmin
@@ -193,10 +193,16 @@ class PublicMeetDeleteUpdate(APIView):
         return Response({"success": "user request sent"}, status=HTTP_202_ACCEPTED)
 
     def get(self, request, room_id):  # see the room details
-        room = get_object_or_404(Room, id=room_id)
-        all_serializers = RoomDynamicSerializer(
-            room,  context={'request': request, 'room_id': room_id})
-        return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
+        if Membership.objects.filter(member_id = request.user.id , room_id = room_id).exists() == False:
+            room = get_object_or_404(Room, id=room_id)
+            all_serializers = RoomDynamicSerializer(
+            room,  context={'request': request, 'room_id': room_id} , fields = ("title" ,  "is_premium" ,  "start_date" , "end_date" , "description" , "categories" , "room_members" , "maximum_member_count"))
+            return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
+        else : 
+            room = get_object_or_404(Room, id=room_id)
+            all_serializers = RoomDynamicSerializer(
+                room,  context={'request': request, 'room_id': room_id})
+            return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
 
     def put(self, request, room_id):  # change the room / link of the room - have params (link)
         link = request.GET.get('link')
@@ -238,6 +244,9 @@ class PublicMeetDeleteUpdate(APIView):
 class ResponseToRequests(APIView):  # join the room must add
     permission_classes = [IsAdmin, IsAuthenticated]
     serializer_class = MembershipSerializer
+    
+    # def permission_classes(self, request, room):
+        
 
     def post(self, request, room_id):  # add user to the room - have params(username)
         username = request.GET.get('username')
@@ -269,10 +278,10 @@ class ResponseToRequests(APIView):  # join the room must add
             if username is None:
                 try:
                     members = Membership.objects.filter(
-                        room_id=room_id, is_member=True)
+                        room_id=room_id)
                 except:
                     return Response({"fail": "not found any requests"}, status=HTTP_404_NOT_FOUND)
-                member_serializer = MembershipSerializer(members, many=True)
+                member_serializer = ShowMembershipSerializer(members, many=True)
                 return Response(member_serializer.data, status=HTTP_200_OK)
             else:
                 try:
