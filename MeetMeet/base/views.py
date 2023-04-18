@@ -100,7 +100,7 @@ class PublicMeetViewSet(APIView):
 
         # first need to filter valid events (events that have not started yet)
         rooms = Room.objects.filter(
-            start_date__gte=datetime.datetime.now().date())
+            start_date__gte=datetime.datetime.now().date(), room_type=1)
         # rooms = Room.objects.all()
         # ---------------------filter--------------------
         # getting possible filter params
@@ -143,10 +143,11 @@ class PublicMeetViewSet(APIView):
             if sort == 'capacity':
                 # rooms = rooms.annotate(sort_param=F(
                 #     'maximum_member_count')-Count('members'))
-                rooms = rooms.filter(membership__is_member=True).annotate(sort_param=F('maximum_member_count')-Count('membership'))
+                rooms = rooms.filter(membership__is_member=True).annotate(
+                    sort_param=F('maximum_member_count')-Count('membership'))
                 if order == '1':
                     rooms = rooms.order_by('sort_param')
-                    for room in rooms :
+                    for room in rooms:
                         print(room.sort_param)
                 else:
                     rooms = rooms.order_by('-sort_param')
@@ -187,9 +188,11 @@ class PublicMeetDeleteUpdate(APIView):
         if Membership.objects.filter(room_id=room_id, member_id=user_id).exists():
             return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
         try:
-            Membership.objects.create(member_id=user_id, room_id=room_id,is_owner=False, is_member=False, is_requested=True, request_status=0)
+            Membership.objects.create(member_id=user_id, room_id=room_id,
+                                      is_owner=False, is_member=False, is_requested=True, request_status=0)
         except:
-            Response({"fail": "already joined"},status=HTTP_406_NOT_ACCEPTABLE)
+            Response({"fail": "already joined"},
+                     status=HTTP_406_NOT_ACCEPTABLE)
         return Response({"success": "user request sent"}, status=HTTP_202_ACCEPTED)
 
     def get(self, request, room_id):  # see the room details
@@ -258,7 +261,8 @@ class ResponseToRequests(APIView):  # join the room must add
             return Response({"faild": "room is full"}, status=HTTP_406_NOT_ACCEPTABLE)
         if Membership.objects.filter(room_id=room_id, member_id=user.id).exists():
             return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
-        Membership.objects.create(member_id=user.id, room_id=room_id,is_owner=False, is_member=True, is_requested=False, request_status=0)
+        Membership.objects.create(member_id=user.id, room_id=room_id,
+                                  is_owner=False, is_member=True, is_requested=False, request_status=0)
         return Response({"success": "user added"}, status=HTTP_201_CREATED)
 
     # get all of requests or members - have params(show_members , username)
@@ -287,7 +291,8 @@ class ResponseToRequests(APIView):  # join the room must add
                 try:
                     users = User.objects.filter(username__icontains=username)
                 except:
-                    Response({"fail": "not found any member"},status=HTTP_404_NOT_FOUND)
+                    Response({"fail": "not found any member"},
+                             status=HTTP_404_NOT_FOUND)
                 user_serializer = UserSerializer(users, many=True)
                 return Response(user_serializer.data, status=HTTP_200_OK)
 
