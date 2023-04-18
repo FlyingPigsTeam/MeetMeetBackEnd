@@ -42,4 +42,4 @@ class Task(models.Model):
     priority = models.PositiveSmallIntegerField(default=0)
     room = models.ForeignKey(Room, on_delete=models.CASCADE , related_name='tasks')
     user = models.ForeignKey(auth_model.User , on_delete=models.CASCADE , related_name='tasks') 
-    description = models.TextField()
+    description = models.TextField(default="")

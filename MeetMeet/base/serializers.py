@@ -53,7 +53,7 @@ class categoriesSerializers(DynamicFieldsModelSerializer):
         fields = ("name" , "id") 
 class TaskSerializer(DynamicFieldsModelSerializer):
     class Meta:
-        models = models.Task
+        model = models.Task
         fields = "__all__"
 class RoomSerializers(serializers.ModelSerializer):
     categories = categoriesSerializers(many=True ) 
