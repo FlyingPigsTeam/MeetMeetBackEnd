@@ -128,4 +128,4 @@ class ShowMembershipSerializer(DynamicFieldsModelSerializer):
     member = UserSerializer(read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name") )
     class Meta:
         model = models.Membership
-        fields = ["is_owner" , "is_member" , "is_requested" ,"request_status" , "member" ]
+        fields = ["is_owner" , "is_member" , "is_requested" ,"request_status" , "member" , "id" ]
