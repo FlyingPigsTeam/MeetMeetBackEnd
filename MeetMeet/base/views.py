@@ -364,3 +364,13 @@ class taskResponse(APIView):
             task = get_object_or_404(Task , id=task_id  , room_id=room_id)
             tasks_serializer = TaskSerializer(task)
             return Response(tasks_serializer.data, status=HTTP_200_OK)
+    def post(self, request , room_id):
+        username = request.GET.get('username')
+        room = get_object_or_404(Room, id=room_id)
+        user = get_object_or_404(User, username=username)
+        self.check_object_permissions(request, room)
+        task_serializer = TaskSerializer(data=request.data)
+        if task_serializer.is_valid():
+            task_serializer.save()
+        else:
+            return Response({"fail": "not valid data"}, status=HTTP_406_NOT_ACCEPTABLE)
