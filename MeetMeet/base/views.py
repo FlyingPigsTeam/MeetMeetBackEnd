@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import get_object_or_404
 from rest_framework.status import HTTP_406_NOT_ACCEPTABLE, HTTP_201_CREATED, HTTP_200_OK, HTTP_202_ACCEPTED, HTTP_404_NOT_FOUND,  HTTP_400_BAD_REQUEST
 from django.db.models import Q, Count
-from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer, ShowMembershipSerializer, TaskSerializer
+from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer, ShowMembershipSerializer,TaskSerializerDynamic , TaskSerializer
 from .models import Room, Category, Membership, Task
 from authentication.models import User
 from .permissions import IsAdmin
@@ -250,7 +250,6 @@ class ResponseToRequests(APIView):  # join the room must add
     serializer_class = MembershipSerializer
 
     # def permission_classes(self, request, room):
-
     def post(self, request, room_id):  # add user to the room - have params(username)
         username = request.GET.get('username')
         user = get_object_or_404(User, username=username)
@@ -264,7 +263,6 @@ class ResponseToRequests(APIView):  # join the room must add
         Membership.objects.create(member_id=user.id, room_id=room_id,
                                   is_owner=False, is_member=True, is_requested=False, request_status=0)
         return Response({"success": "user added"}, status=HTTP_201_CREATED)
-
     # get all of requests or members - have params(show_members , username)
     def get(self, request, room_id):
         show_members = int(request.GET.get('show_members'))
@@ -337,7 +335,7 @@ class ResponseToRequests(APIView):  # join the room must add
 def AlluserTasks(request):
     try:
         tasks = Task.objects.filter(user_id=request.user.id)
-        tasks_serializer = TaskSerializer(tasks, many=True)
+        tasks_serializer = TaskSerializerDynamic(tasks, many=True)
     except:
         return Response({"fail": "not found any tasks"}, status=HTTP_404_NOT_FOUND)
     return Response(tasks_serializer.data, status=HTTP_200_OK)
@@ -345,14 +343,14 @@ def AlluserTasks(request):
 
 class taskResponse(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = TaskSerializer
+    serializer_class = TaskSerializerDynamic
 
-    def get(self, request , room_id):  # get all or one task or an user task - have params(all , task_id)
+    def get(self, request, room_id):  # get all or one task or an user task - have params(all , task_id)
         show_all = request.GET.get('show_all')
         if show_all is not None:
             try:
                 tasks = Task.objects.filter(room_id=room_id)
-                tasks_serializer = TaskSerializer(tasks, many=True)
+                tasks_serializer = TaskSerializerDynamic(tasks, many=True)
             except:
                 return Response({"fail": "not found any tasks"}, status=HTTP_404_NOT_FOUND)
             return Response(tasks_serializer.data, status=HTTP_200_OK)
@@ -361,15 +359,48 @@ class taskResponse(APIView):
                 task_id = int(request.GET.get('task_id'))
             except:
                 return Response({"fail": "params are not ok"}, status=HTTP_400_BAD_REQUEST)
-            task = get_object_or_404(Task , id=task_id  , room_id=room_id)
-            tasks_serializer = TaskSerializer(task)
+            task = get_object_or_404(Task, id=task_id, room_id=room_id)
+            tasks_serializer = TaskSerializerDynamic(task)
             return Response(tasks_serializer.data, status=HTTP_200_OK)
-    def post(self, request , room_id):
+
+    def post(self, request, room_id):
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
-        task_serializer = TaskSerializer(data=request.data)
+        task_serializer = TaskSerializerDynamic(data=request.data)
         if task_serializer.is_valid():
             task_serializer.save()
             return Response(task_serializer.data, status=HTTP_200_OK)
         else:
             return Response({"fail": "not valid data"}, status=HTTP_406_NOT_ACCEPTABLE)
+
+    def put(self, request, room_id):
+        try : 
+            task_id = int(request.GET.get('task_id'))
+        except :
+            return Response({"fial": "bad params"}, status=HTTP_400_BAD_REQUEST)
+        room = get_object_or_404(Room, id=room_id)
+        task = get_object_or_404(Task, id=task_id)
+        self.check_object_permissions(request, room)
+        task_serializer = TaskSerializer(
+            instance=task,
+            data=request.data,
+            partial=True
+            )
+        if task_serializer.is_valid():
+            task_serializer.save()
+            return Response({"success": "changed"}, status=HTTP_202_ACCEPTED)
+        return Response({"fail": task_serializer.errors}, status=HTTP_406_NOT_ACCEPTABLE)
+    
+    def delete(self, request, room_id):
+        try : 
+            task_id = int(request.GET.get('task_id'))
+        except :
+            return Response({"fial": "bad params"}, status=HTTP_400_BAD_REQUEST)
+        room = get_object_or_404(Room, id=room_id)
+        self.check_object_permissions(request, room)
+        try:
+            task = Task.objects.get(id=task_id)
+        except:
+            return Response({"fail": "not found any request"}, status=HTTP_404_NOT_FOUND)
+        task.delete()
+        return Response({"success": "deleted"}, status=HTTP_200_OK)

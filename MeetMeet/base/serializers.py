@@ -51,10 +51,16 @@ class categoriesSerializers(DynamicFieldsModelSerializer):
     class Meta:
         model = models.Category
         fields = ("name" , "id") 
-class TaskSerializer(DynamicFieldsModelSerializer):
+class TaskSerializerDynamic(DynamicFieldsModelSerializer):
     class Meta:
         model = models.Task
         fields = "__all__"
+class TaskSerializer(serializers.ModelSerializer):
+    user_id = serializers.PrimaryKeyRelatedField(queryset = models.Task.objects.all())
+    class Meta:
+        model = models.Task
+        fields = ("title" , "description" , "user_id" , "priority")         
+
 class RoomSerializers(serializers.ModelSerializer):
     categories = categoriesSerializers(many=True ) 
     class Meta:
@@ -95,7 +101,7 @@ class RoomDynamicSerializer(DynamicFieldsModelSerializer):
     categories = categoriesSerializers(many=True , read_only=True)
     room_members = serializers.SerializerMethodField()
     is_admin = serializers.SerializerMethodField()
-    tasks = TaskSerializer(many=True , read_only=True , fields = ("title" , "priority"))
+    tasks = TaskSerializerDynamic(many=True , read_only=True , fields = ("title" , "priority"))
     class Meta:
         model = models.Room
         # fields = "__all__"
