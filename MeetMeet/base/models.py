@@ -43,3 +43,4 @@ class Task(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE , related_name='tasks')
     user = models.ForeignKey(auth_model.User , on_delete=models.CASCADE , related_name='tasks') 
     description = models.TextField(default="")
+    done = models.PositiveSmallIntegerField(default=0)

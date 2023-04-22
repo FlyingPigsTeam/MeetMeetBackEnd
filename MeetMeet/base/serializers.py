@@ -45,21 +45,22 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
 
         instance.save()
         return instance
-
-
 class categoriesSerializers(DynamicFieldsModelSerializer):
     class Meta:
         model = models.Category
         fields = ("name" , "id") 
 class TaskSerializerDynamic(DynamicFieldsModelSerializer):
+    user = UserSerializer(read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name") )
     class Meta:
         model = models.Task
-        fields = "__all__"
+        fields = "__all__" 
 class TaskSerializer(serializers.ModelSerializer):
-    user_id = serializers.PrimaryKeyRelatedField(queryset = models.Task.objects.all())
     class Meta:
         model = models.Task
-        fields = ("title" , "description" , "user_id" , "priority")         
+        fields = "__all__"  
+    def create(self, validated_data):
+        room = models.Task.objects.create(**validated_data)
+        return room          
 
 class RoomSerializers(serializers.ModelSerializer):
     categories = categoriesSerializers(many=True ) 

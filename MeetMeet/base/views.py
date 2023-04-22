@@ -350,7 +350,7 @@ class taskResponse(APIView):
         if show_all is not None:
             try:
                 tasks = Task.objects.filter(room_id=room_id)
-                tasks_serializer = TaskSerializerDynamic(tasks, many=True)
+                tasks_serializer = TaskSerializerDynamic(tasks, many=True , fields = ("id" , "title" , "priority" , "description" , "done" , "user") )
             except:
                 return Response({"fail": "not found any tasks"}, status=HTTP_404_NOT_FOUND)
             return Response(tasks_serializer.data, status=HTTP_200_OK)
@@ -360,20 +360,20 @@ class taskResponse(APIView):
             except:
                 return Response({"fail": "params are not ok"}, status=HTTP_400_BAD_REQUEST)
             task = get_object_or_404(Task, id=task_id, room_id=room_id)
-            tasks_serializer = TaskSerializerDynamic(task)
+            tasks_serializer = TaskSerializerDynamic(task , fields = ("id" , "title" , "priority" , "description" , "done" , "user"))
             return Response(tasks_serializer.data, status=HTTP_200_OK)
 
     def post(self, request, room_id):
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
-        task_serializer = TaskSerializerDynamic(data=request.data)
+        task_serializer = TaskSerializer(data=request.data)
         if task_serializer.is_valid():
             task_serializer.save()
             return Response(task_serializer.data, status=HTTP_200_OK)
         else:
             return Response({"fail": "not valid data"}, status=HTTP_406_NOT_ACCEPTABLE)
 
-    def put(self, request, room_id):
+    def put(self, request, room_id): # have paramns (task_id)
         try : 
             task_id = int(request.GET.get('task_id'))
         except :
@@ -384,14 +384,16 @@ class taskResponse(APIView):
         task_serializer = TaskSerializer(
             instance=task,
             data=request.data,
-            partial=True
+            partial=True,
             )
+        # obj = User.objects.get(pk = request.data["user"] )
+        # Task.objects.filter(id = task_id).update(user = obj)
         if task_serializer.is_valid():
             task_serializer.save()
             return Response({"success": "changed"}, status=HTTP_202_ACCEPTED)
         return Response({"fail": task_serializer.errors}, status=HTTP_406_NOT_ACCEPTABLE)
     
-    def delete(self, request, room_id):
+    def delete(self, request, room_id):  # have paramns (task_id)
         try : 
             task_id = int(request.GET.get('task_id'))
         except :
