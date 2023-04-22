@@ -45,16 +45,23 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
 
         instance.save()
         return instance
-
-
 class categoriesSerializers(DynamicFieldsModelSerializer):
     class Meta:
         model = models.Category
         fields = ("name" , "id") 
-class TaskSerializer(DynamicFieldsModelSerializer):
+class TaskSerializerDynamic(DynamicFieldsModelSerializer):
+    user = UserSerializer(read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name") )
     class Meta:
         model = models.Task
-        fields = "__all__"
+        fields = "__all__" 
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.Task
+        fields = "__all__"  
+    def create(self, validated_data):
+        room = models.Task.objects.create(**validated_data)
+        return room          
+
 class RoomSerializers(serializers.ModelSerializer):
     categories = categoriesSerializers(many=True ) 
     class Meta:
@@ -95,13 +102,14 @@ class RoomDynamicSerializer(DynamicFieldsModelSerializer):
     categories = categoriesSerializers(many=True , read_only=True)
     room_members = serializers.SerializerMethodField()
     is_admin = serializers.SerializerMethodField()
-    tasks = TaskSerializer(many=True , read_only=True , fields = ("title" , "priority"))
+    tasks = TaskSerializerDynamic(many=True , read_only=True , fields = ("title" , "priority"))
     class Meta:
         model = models.Room
         # fields = "__all__"
         exclude = ('members', )
     def get_is_admin(self, instance):
-        return instance.members.through.objects.filter(member_id = self.context['request'].user.id , room_id = self.context['room_id'] ).values("is_owner")[0]["is_owner"]
+        # breakpoint()
+        return instance.members.through.objects.filter(member_id = self.context['request'].user.id , room_id = instance.id ).values("is_owner")[0]["is_owner"]
     def get_room_members(self, instance):
         test = instance.members.through.objects.filter(is_member = True , room_id = self.context['room_id'] ).values("member_id")
         IDs = []
