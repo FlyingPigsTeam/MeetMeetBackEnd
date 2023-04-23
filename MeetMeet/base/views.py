@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import get_object_or_404
 from rest_framework.status import HTTP_406_NOT_ACCEPTABLE, HTTP_201_CREATED, HTTP_200_OK, HTTP_202_ACCEPTED, HTTP_404_NOT_FOUND,  HTTP_400_BAD_REQUEST
 from django.db.models import Q, Count
-from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer, ShowMembershipSerializer,TaskSerializerDynamic , TaskSerializer
+from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer, ShowMembershipSerializer,TaskSerializerDynamic , TaskSerializer ,categoriesSerializers
 from .models import Room, Category, Membership, Task
 from authentication.models import User
 from .permissions import IsAdmin
@@ -406,3 +406,22 @@ class taskResponse(APIView):
             return Response({"fail": "not found any request"}, status=HTTP_404_NOT_FOUND)
         task.delete()
         return Response({"success": "deleted"}, status=HTTP_200_OK)
+    
+
+@api_view(['POST' , 'GET'])
+def CRUDCategorey(request):
+    if request.method == "GET":
+        data = Category.objects.all()
+        jsonResponse = categoriesSerializers(data , many=True , fields = ["name"]).data
+        return Response(jsonResponse)
+    
+    if request.method == "POST":
+        data = categoriesSerializers(data = request.data , fields = ["name"])
+        if data.is_valid():
+            if Category.objects.filter(name = request.data["name"]).exists():
+                return Response({"error" : "category with this name already exists" }, status=HTTP_400_BAD_REQUEST)
+            else:
+                data.save()
+        else :
+            return Response({"error" : "invalid input" }, status=HTTP_400_BAD_REQUEST)
+        return Response({"success" : "category added"})

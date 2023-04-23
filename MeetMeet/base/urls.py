@@ -12,5 +12,6 @@ urlpatterns = [
     path("my-rooms/<int:room_id>/tasks" , views.taskResponse.as_view()),
     path("my-tasks" , views.AlluserTasks),
     path("my-rooms" , views.PrivateMeetViewSet.as_view()),
-    path("profile",views.Profile)
+    path("profile",views.Profile),
+    path("category" , views.CRUDCategorey)
 ]
