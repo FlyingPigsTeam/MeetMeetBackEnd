@@ -295,8 +295,11 @@ class ResponseToRequests(APIView):  # join the room must add
                 user_serializer = UserSerializer(users, many=True)
                 return Response(user_serializer.data, status=HTTP_200_OK)
 
-    def put(self, request, room_id):  # accept or reject requests or add or promote a member
-        add = request.GET.get('add')
+    def put(self, request, room_id): 
+        try:# accept or reject requests or add or promote a member
+            add = request.GET.get('add')
+        except:
+            return Response({"fail" : "bad params"} , status=HTTP_400_BAD_REQUEST)
         if add == '1':
             maxmember = room.maximum_member_count
             if maxmember == Membership.objects.filter(room_id=room_id, is_member=True).count():
@@ -307,7 +310,7 @@ class ResponseToRequests(APIView):  # join the room must add
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
         try:
-            request_member = Membership.objects.get(member_id=request_id)
+            request_member = Membership.objects.get(pk=request_id)
         except:
             return Response({"fail": "not found any request"}, status=HTTP_404_NOT_FOUND)
         requests_serializer = MembershipSerializer(
