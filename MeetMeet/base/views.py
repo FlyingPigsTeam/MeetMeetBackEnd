@@ -39,7 +39,7 @@ def delete_file_in_server(path):
 
 
 @api_view(["POST", "PUT"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated , IsAdmin])
 def upload_image(request):  # have params (where , id) => profile , brief_plan , room
     try:
         where = request.GET.get('where')
@@ -47,6 +47,8 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
         return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)
     if where == "profile":  # mediafiels/profile/id.typefile
         id = int(request.GET.get("id"))
+        if request.user.id != id :
+            return Response({"fail": "access denied"}, status=HTTP_406_NOT_ACCEPTABLE)
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPEG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPG')
@@ -60,6 +62,9 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
         return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
     elif where == "room" : # mediafiels/room/id.typefile
         id = int(request.GET.get("id"))
+        theUser = get_object_or_404(Membership , room_id = id , member_id = request.user.id )
+        if theUser.is_owner == False :
+            return Response({"fail": "access denied"}, status=HTTP_406_NOT_ACCEPTABLE)
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png') 
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPEG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPG')
@@ -76,7 +81,10 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
             id = int(request.GET.get("id"))
             room_id = int(request.GET.get("room_id"))
         except:
-            return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)    
+            return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)  
+        theUser = get_object_or_404(Membership , room_id = room_id , member_id = request.user.id )
+        if theUser.is_owner == False :
+            return Response({"fail": "access denied"}, status=HTTP_406_NOT_ACCEPTABLE)  
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.png') 
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPEG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPG')
