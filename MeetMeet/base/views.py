@@ -9,7 +9,7 @@ from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from django.db.models import Q, Count
 from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer, ShowMembershipSerializer, TaskSerializerDynamic, TaskSerializer, categoriesSerializers
-from .models import Room, Category, Membership, Task , BriefPlan
+from .models import Room, Category, Membership, Task, BriefPlan
 from authentication.models import User
 from .permissions import IsAdmin
 import base64
@@ -39,17 +39,20 @@ def delete_file_in_server(path):
 
 
 @api_view(["POST", "PUT"])
-@permission_classes([IsAuthenticated , IsAdmin])
+@permission_classes([IsAuthenticated, IsAdmin])
 def upload_image(request):  # have params (where , id) => profile , brief_plan , room
     try:
         where = request.GET.get('where')
     except:
         return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)
     if where == "profile":  # mediafiels/profile/id.typefile
-        id = int(request.GET.get("id"))
-        if request.user.id != id :
+        try:
+            id = int(request.GET.get("id"))
+        except:
+            return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)
+        if request.user.id != id:
             return Response({"fail": "access denied"}, status=HTTP_406_NOT_ACCEPTABLE)
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png')
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.PNG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPEG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPG')
         file_data = request.data.get('image')
@@ -60,12 +63,15 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
         User.objects.filter(pk=id).update(
             picture_path=f"http://127.0.0.1:8000/media/profile/{file_path}")
         return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
-    elif where == "room" : # mediafiels/room/id.typefile
-        id = int(request.GET.get("id"))
+    elif where == "room":  # mediafiels/room/id.typefile
+        try:
+            id = int(request.GET.get("id"))
+        except:
+            return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)  
         theUser = get_object_or_404(Membership , room_id = id , member_id = request.user.id )
         if theUser.is_owner == False :
             return Response({"fail": "access denied"}, status=HTTP_406_NOT_ACCEPTABLE)
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png') 
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.PNG') 
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPEG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPG')
         file_data = request.data.get('image')
@@ -85,7 +91,7 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
         theUser = get_object_or_404(Membership , room_id = room_id , member_id = request.user.id )
         if theUser.is_owner == False :
             return Response({"fail": "access denied"}, status=HTTP_406_NOT_ACCEPTABLE)  
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.png') 
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.PNG') 
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPEG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPG')
         file_data = request.data.get('image')
@@ -100,10 +106,10 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
         return Response({"fail": "bad params"} , status=HTTP_400_BAD_REQUEST)
     
 
-@api_view(["DELETE"])
-@permission_classes([IsAuthenticated])
-def remove_image(request):
-    delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png')
+# @api_view(["DELETE"])
+# @permission_classes([IsAuthenticated])
+# def remove_image(request):
+#     delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.PNG')
 
 
 @api_view(["GET"])
@@ -332,6 +338,9 @@ class PublicMeetDeleteUpdate(APIView):
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
         room.delete()
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/room/{room_id}.PNG') # the foemat of the file may cuz problems
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/room/{room_id}.JPEG')
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/room/{room_id}.JPG')
         return Response({"success": "deleted!"}, status=HTTP_200_OK)
 
 
