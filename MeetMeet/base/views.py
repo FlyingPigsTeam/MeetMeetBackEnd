@@ -9,7 +9,7 @@ from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from django.db.models import Q, Count
 from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer, ShowMembershipSerializer, TaskSerializerDynamic, TaskSerializer, categoriesSerializers
-from .models import Room, Category, Membership, Task
+from .models import Room, Category, Membership, Task , BriefPlan
 from authentication.models import User
 from .permissions import IsAdmin
 import base64
@@ -72,17 +72,21 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
             main_picture_path=f"http://127.0.0.1:8000/media/room/{file_path}")
         return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
     elif where == "brief_plan" : # mediafiels/brief_plan/room_id/id.typefile
-        id = int(request.GET.get("id"))
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png') 
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPEG')
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPG')
+        try:
+            id = int(request.GET.get("id"))
+            room_id = int(request.GET.get("room_id"))
+        except:
+            return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)    
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.png') 
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPEG')
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPG')
         file_data = request.data.get('image')
         file_type = file_data.name.split('.')[1]
         file_path = save_file_to_server(
-            file_data, "brief_plan/", f'{id}.{file_type}')
+            file_data, f"brief_plan/{room_id}/", f'{id}.{file_type}')
         # must changed for different where!
-        Room.objects.filter(pk=id).update(
-            main_picture_path=f"http://127.0.0.1:8000/media/brief_plan/{file_path}")
+        BriefPlan.objects.filter(pk=id).update(
+            picture=f"http://127.0.0.1:8000/media/brief_plan/{room_id}/{file_path}")
         return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
     else:
         return Response({"fail": "bad params"} , status=HTTP_400_BAD_REQUEST)
