@@ -1,6 +1,9 @@
 from django.db import models
 from authentication import models as auth_model
 
+def upload_to_room(instance, filename):
+    return f'images/profile/{filename}'
+
 class Category(models.Model):
     name = models.CharField(max_length=100)
 

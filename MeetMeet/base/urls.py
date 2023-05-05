@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path("", views.Home),
+    path("upload" , views.upload_image),
     path("rooms" , views.PublicMeetViewSet.as_view()  ),
     path("rooms/<int:room_id>" , views.PublicMeetDeleteUpdate.as_view()),
     path("rooms/<str:hashid>" , views.randomlinks),
@@ -14,4 +15,4 @@ urlpatterns = [
     path("my-rooms" , views.PrivateMeetViewSet.as_view()),
     path("profile",views.Profile),
     path("category" , views.CRUDCategorey)
-]
+] 

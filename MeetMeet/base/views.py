@@ -5,8 +5,10 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import get_object_or_404
 from rest_framework.status import HTTP_406_NOT_ACCEPTABLE, HTTP_201_CREATED, HTTP_200_OK, HTTP_202_ACCEPTED, HTTP_404_NOT_FOUND,  HTTP_400_BAD_REQUEST
+from django.core.files.storage import FileSystemStorage
+from django.conf import settings
 from django.db.models import Q, Count
-from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer, ShowMembershipSerializer,TaskSerializerDynamic , TaskSerializer ,categoriesSerializers
+from .serializers import RoomSerializers, MembershipSerializer, UserSerializer, RoomDynamicSerializer, RoomCardSerializers, ProfileSerializer, ShowMembershipSerializer, TaskSerializerDynamic, TaskSerializer, categoriesSerializers
 from .models import Room, Category, Membership, Task
 from authentication.models import User
 from .permissions import IsAdmin
@@ -14,6 +16,82 @@ import base64
 import datetime
 from django.db.models import F
 from rest_framework.pagination import PageNumberPagination
+import os
+
+
+def save_file_to_server(file_data, where, name):
+    # create a file system storage object
+    fs = FileSystemStorage(location=f'{settings.MEDIA_ROOT}/{where}')
+    # save the file data to the media folder
+    file_name = fs.save(name, file_data)
+    # get the file url
+    file_url = fs.url(file_name)
+    # return the file url
+    return file_name
+
+
+def delete_file_in_server(path):
+    if os.path.exists(path):
+        os.remove(path)
+        return True
+    else:
+        return True
+
+
+@api_view(["POST", "PUT"])
+@permission_classes([IsAuthenticated])
+def upload_image(request):  # have params (where , id) => profile , brief_plan , room
+    try:
+        where = request.GET.get('where')
+    except:
+        return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)
+    if where == "profile":  # mediafiels/profile/id.typefile
+        id = int(request.GET.get("id"))
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png')
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPEG')
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPG')
+        file_data = request.data.get('image')
+        file_type = file_data.name.split('.')[1]
+        file_path = save_file_to_server(
+            file_data, "profile/", f'{id}.{file_type}')
+        # must changed for different where!
+        User.objects.filter(pk=id).update(
+            picture_path=f"http://127.0.0.1:8000/media/profile/{file_path}")
+        return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
+    elif where == "room" : # mediafiels/room/id.typefile
+        id = int(request.GET.get("id"))
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png') 
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPEG')
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPG')
+        file_data = request.data.get('image')
+        file_type = file_data.name.split('.')[1]
+        file_path = save_file_to_server(
+            file_data, "room/", f'{id}.{file_type}')
+        # must changed for different where!
+        Room.objects.filter(pk=id).update(
+            main_picture_path=f"http://127.0.0.1:8000/media/room/{file_path}")
+        return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
+    elif where == "brief_plan" : # mediafiels/brief_plan/room_id/id.typefile
+        id = int(request.GET.get("id"))
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png') 
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPEG')
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPG')
+        file_data = request.data.get('image')
+        file_type = file_data.name.split('.')[1]
+        file_path = save_file_to_server(
+            file_data, "brief_plan/", f'{id}.{file_type}')
+        # must changed for different where!
+        Room.objects.filter(pk=id).update(
+            main_picture_path=f"http://127.0.0.1:8000/media/brief_plan/{file_path}")
+        return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
+    else:
+        return Response({"fail": "bad params"} , status=HTTP_400_BAD_REQUEST)
+    
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def remove_image(request):
+    delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.png')
 
 
 @api_view(["GET"])
@@ -264,6 +342,7 @@ class ResponseToRequests(APIView):  # join the room must add
                                   is_owner=False, is_member=True, is_requested=False, request_status=0)
         return Response({"success": "user added"}, status=HTTP_201_CREATED)
     # get all of requests or members - have params(show_members , username)
+
     def get(self, request, room_id):
         show_members = int(request.GET.get('show_members'))
         if show_members == 0:  # show the requests
@@ -295,11 +374,11 @@ class ResponseToRequests(APIView):  # join the room must add
                 user_serializer = UserSerializer(users, many=True)
                 return Response(user_serializer.data, status=HTTP_200_OK)
 
-    def put(self, request, room_id): 
-        try:# accept or reject requests or add or promote a member
+    def put(self, request, room_id):
+        try:  # accept or reject requests or add or promote a member
             add = request.GET.get('add')
         except:
-            return Response({"fail" : "bad params"} , status=HTTP_400_BAD_REQUEST)
+            return Response({"fail": "bad params"}, status=HTTP_400_BAD_REQUEST)
         if add == '1':
             maxmember = room.maximum_member_count
             if maxmember == Membership.objects.filter(room_id=room_id, is_member=True).count():
@@ -353,7 +432,8 @@ class taskResponse(APIView):
         if show_all is not None:
             try:
                 tasks = Task.objects.filter(room_id=room_id)
-                tasks_serializer = TaskSerializerDynamic(tasks, many=True , fields = ("id" , "title" , "priority" , "description" , "done" , "user") )
+                tasks_serializer = TaskSerializerDynamic(tasks, many=True, fields=(
+                    "id", "title", "priority", "description", "done", "user"))
             except:
                 return Response({"fail": "not found any tasks"}, status=HTTP_404_NOT_FOUND)
             return Response(tasks_serializer.data, status=HTTP_200_OK)
@@ -363,7 +443,8 @@ class taskResponse(APIView):
             except:
                 return Response({"fail": "params are not ok"}, status=HTTP_400_BAD_REQUEST)
             task = get_object_or_404(Task, id=task_id, room_id=room_id)
-            tasks_serializer = TaskSerializerDynamic(task , fields = ("id" , "title" , "priority" , "description" , "done" , "user"))
+            tasks_serializer = TaskSerializerDynamic(task, fields=(
+                "id", "title", "priority", "description", "done", "user"))
             return Response(tasks_serializer.data, status=HTTP_200_OK)
 
     def post(self, request, room_id):
@@ -376,10 +457,10 @@ class taskResponse(APIView):
         else:
             return Response({"fail": "not valid data"}, status=HTTP_406_NOT_ACCEPTABLE)
 
-    def put(self, request, room_id): # have paramns (task_id)
-        try : 
+    def put(self, request, room_id):  # have paramns (task_id)
+        try:
             task_id = int(request.GET.get('task_id'))
-        except :
+        except:
             return Response({"fial": "bad params"}, status=HTTP_400_BAD_REQUEST)
         room = get_object_or_404(Room, id=room_id)
         task = get_object_or_404(Task, id=task_id)
@@ -388,18 +469,18 @@ class taskResponse(APIView):
             instance=task,
             data=request.data,
             partial=True,
-            )
+        )
         # obj = User.objects.get(pk = request.data["user"] )
         # Task.objects.filter(id = task_id).update(user = obj)
         if task_serializer.is_valid():
             task_serializer.save()
             return Response({"success": "changed"}, status=HTTP_202_ACCEPTED)
         return Response({"fail": task_serializer.errors}, status=HTTP_406_NOT_ACCEPTABLE)
-    
+
     def delete(self, request, room_id):  # have paramns (task_id)
-        try : 
+        try:
             task_id = int(request.GET.get('task_id'))
-        except :
+        except:
             return Response({"fial": "bad params"}, status=HTTP_400_BAD_REQUEST)
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
@@ -409,22 +490,23 @@ class taskResponse(APIView):
             return Response({"fail": "not found any request"}, status=HTTP_404_NOT_FOUND)
         task.delete()
         return Response({"success": "deleted"}, status=HTTP_200_OK)
-    
 
-@api_view(['POST' , 'GET'])
+
+@api_view(['POST', 'GET'])
 def CRUDCategorey(request):
     if request.method == "GET":
         data = Category.objects.all()
-        jsonResponse = categoriesSerializers(data , many=True , fields = ["name"]).data
+        jsonResponse = categoriesSerializers(
+            data, many=True, fields=["name"]).data
         return Response(jsonResponse)
-    
+
     if request.method == "POST":
-        data = categoriesSerializers(data = request.data , fields = ["name"])
+        data = categoriesSerializers(data=request.data, fields=["name"])
         if data.is_valid():
-            if Category.objects.filter(name = request.data["name"]).exists():
-                return Response({"error" : "category with this name already exists" }, status=HTTP_400_BAD_REQUEST)
+            if Category.objects.filter(name=request.data["name"]).exists():
+                return Response({"error": "category with this name already exists"}, status=HTTP_400_BAD_REQUEST)
             else:
                 data.save()
-        else :
-            return Response({"error" : "invalid input" }, status=HTTP_400_BAD_REQUEST)
-        return Response({"success" : "category added"})
+        else:
+            return Response({"error": "invalid input"}, status=HTTP_400_BAD_REQUEST)
+        return Response({"success": "category added"})
