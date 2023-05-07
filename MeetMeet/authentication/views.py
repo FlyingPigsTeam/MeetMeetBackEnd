@@ -12,6 +12,7 @@ import jwt
 from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.hashers import make_password
+from . import TokenSetting
 
 
 @api_view(["POST"])
@@ -68,6 +69,7 @@ def login(request):
             return Response({"error": 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
         if not user.email_verified:
             token1 = RefreshToken.for_user(user).access_token
+            # token1 = TokenSetting.MyTokenObtainPairSerializer.get_token(user)
             # current_site = str(get_current_site(request))
             current_site = "localhost:3000/"
             # relativeLink = reverse('email-verify')
@@ -80,7 +82,8 @@ def login(request):
 
             Util.send_email(email_data)
             return Response({"error": 'email is not verified'}, status=status.HTTP_400_BAD_REQUEST)
-        token = RefreshToken.for_user(user)
+        # token = RefreshToken.for_user(user)
+        token = TokenSetting.MyTokenObtainPairSerializer.get_token(user)
         return Response({'access': str(token.access_token), 'refresh': str(token)})
     else:
         return Response({"status": "fail", "message": requestData.errors}, status=status.HTTP_400_BAD_REQUEST)
