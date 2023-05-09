@@ -406,7 +406,6 @@ class ResponseToRequests(APIView):  # join the room must add
             if Membership.objects.filter(room_id=room_id, member_id=request_id , is_member = True).exists():
                 return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
         request_id = request.GET.get('request_id')
-        breakpoint()
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
         try:
@@ -420,6 +419,7 @@ class ResponseToRequests(APIView):  # join the room must add
             instance=request_member, partial=True, data=request.data)
         if requests_serializer.is_valid():
             requests_serializer.save()
+            # breakpoint()
             return Response({"success": "status changed successfully"}, status=HTTP_200_OK)
         else:
             return Response({"fail": requests_serializer.errors}, status=HTTP_406_NOT_ACCEPTABLE)
