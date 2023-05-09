@@ -391,7 +391,8 @@ class ResponseToRequests(APIView):  # join the room must add
                 except:
                     Response({"fail": "not found any member"},
                              status=HTTP_404_NOT_FOUND)
-                user_serializer = UserSerializer(users, many=True , fields = ("first_name" , "last_name" , "picture_path" , "username"))
+                user_serializer = UserSerializer(users, many=True,\
+                    fields = ("first_name" , "last_name" , "picture_path" , "username"))
                 return Response(user_serializer.data, status=HTTP_200_OK)
 
     def put(self, request, room_id): # accept or reject requests or promote a member - have params(add ,request_id )
