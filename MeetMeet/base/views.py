@@ -270,7 +270,9 @@ class PublicMeetViewSet(APIView):
             Room.objects.filter(pk=room.id).update(link=listofparams[0])
             owner = Membership.objects.create(
                 room_id=room.id, is_owner=True, is_member=True, member_id=request.user.id, is_requested=False, request_status=3)
-            return Response({"success": link_created}, status=HTTP_201_CREATED)
+            obj= Room.objects.last()
+            # breakpoint()
+            return Response({"success": link_created , "id" : obj.id }, status=HTTP_201_CREATED)
         else:
             return Response({"fail": "not valid data"}, status=HTTP_406_NOT_ACCEPTABLE)
 
@@ -293,7 +295,7 @@ class PublicMeetDeleteUpdate(APIView):
         return Response({"success": "user request sent"}, status=HTTP_202_ACCEPTED)
 
     def get(self, request, room_id):  # see the room details
-        if Membership.objects.filter(member_id=request.user.id, room_id=room_id).exists() == False:
+        if Membership.objects.filter(member_id=request.user.id, room_id=room_id , is_member = True).exists() == False:
             room = get_object_or_404(Room, id=room_id)
             all_serializers = RoomDynamicSerializer(
                 room,  context={'request': request, 'room_id': room_id}, fields=("title",  "is_premium",  "start_date", "end_date", "description", "categories", "room_members", "maximum_member_count"))
@@ -387,7 +389,7 @@ class ResponseToRequests(APIView):  # join the room must add
                 return Response(member_serializer.data, status=HTTP_200_OK)
             else:
                 try:
-                    users = User.objects.filter(username__icontains=username)
+                    users = User.objects.filter(username__startswith=username)
                 except:
                     Response({"fail": "not found any member"},
                              status=HTTP_404_NOT_FOUND)

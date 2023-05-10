@@ -108,7 +108,6 @@ class RoomDynamicSerializer(DynamicFieldsModelSerializer):
         # fields = "__all__"
         exclude = ('members', )
     def get_is_admin(self, instance):
-        # breakpoint()
         return instance.members.through.objects.filter(member_id = self.context['request'].user.id , room_id = instance.id ).values("is_owner")[0]["is_owner"]
     def get_room_members(self, instance):
         test = instance.members.through.objects.filter(is_member = True , room_id = self.context['room_id'] ).values("member_id")
