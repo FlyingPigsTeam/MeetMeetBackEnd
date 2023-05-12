@@ -157,7 +157,7 @@ def randomlinks(request, hashid):
         return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
     if room.link == hashid:
         all_serializers = RoomDynamicSerializer(
-            room, context={'request': request, 'room_id': room_id}, fields=("title",  "start_date" , "end_date", "description", "categories", "main_picture_path" , "id"))
+            room, context={'request': request, 'room_id': room_id}, fields=("title",  "start_date" , "end_date", "description", "categories", "main_picture_path" , "id" , "is_premium" , "room_type" , "open_status"))
         return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
     else:
         return Response({"fail": "wrong link"}, status=HTTP_406_NOT_ACCEPTABLE)
