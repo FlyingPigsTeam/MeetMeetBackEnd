@@ -154,7 +154,7 @@ def randomlinks(request, hashid):
     room = get_object_or_404(Room, id=room_id)
     user_id = request.user.id
     if Membership.objects.filter(room_id=room_id, member_id=user_id , is_member = True).exists():
-        return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
+        return Response({"fail": "already joined" , "id" : room_id}, status=HTTP_406_NOT_ACCEPTABLE)
     if room.link == hashid:
         all_serializers = RoomDynamicSerializer(
             room, context={'request': request, 'room_id': room_id}, fields=("title",  "start_date" , "end_date", "description", "categories", "main_picture_path" , "id" , "is_premium" , "room_type" , "open_status"))
