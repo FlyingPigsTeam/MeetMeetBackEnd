@@ -23,13 +23,14 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
+    picture_path = serializers.CharField(max_length=255)
     current_password = serializers.CharField(
         max_length=68, min_length=3)
     new_password = serializers.CharField(
         max_length=68, min_length=3)
     class Meta:
         model = auth_models.User
-        fields=("username" , "email" , "first_name" , "last_name" , "bio" , "current_password" , "new_password")
+        fields=("username" , "email" , "first_name" , "last_name" , "bio" , "current_password" , "new_password" , "picture_path")
     def update(self,instance , validated_data):
         instance.bio = validated_data.get('bio' , instance.bio)
         instance.first_name = validated_data.get('first_name' , instance.first_name)
@@ -37,7 +38,7 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
         password = validated_data.get("current_password")
         if password is not None:
             if not instance.check_password(password):
-               return -1
+                return -1
             else :
                 instance.set_password(validated_data.get("new_password"))
                 instance.save()

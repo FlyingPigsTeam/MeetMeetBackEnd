@@ -47,7 +47,7 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
         return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)
     if where == "profile":  # mediafiels/profile/id.typefile
         try:
-            id = int(request.GET.get("id"))
+            id = request.user.id
         except:
             return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)
         if request.user.id != id:
@@ -123,7 +123,7 @@ def Profile(request):
     user = request.user
     if request.method == 'GET':
         jsonResponse = ProfileSerializer(
-            user, fields=["username", "email", "first_name", "last_name", "bio"]).data
+            user, fields=["username", "email", "first_name", "last_name", "bio", "picture_path"]).data
         return Response(jsonResponse)
 
     if request.method == 'PUT':
