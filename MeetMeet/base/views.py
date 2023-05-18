@@ -381,12 +381,21 @@ class ResponseToRequests(APIView):  # join the room must add
             if username is None:
                 try:
                     members = Membership.objects.filter(
-                        room_id=room_id)
+                        room_id=room_id).order_by('-is_owner', '-is_requested')
                 except:
                     return Response({"fail": "not found any requests"}, status=HTTP_404_NOT_FOUND)
+                entriesInString = request.GET.get('entries')
+                entries = 0
+                if entriesInString is None :
+                    entries = 10
+                else :
+                    entries = int(entriesInString)
+                paginator = PageNumberPagination()
+                paginator.page_size = entries
+                jsonResponsePaginated = paginator.paginate_queryset(members, request)
                 member_serializer = ShowMembershipSerializer(
-                    members, many=True)
-                return Response(member_serializer.data, status=HTTP_200_OK)
+                    jsonResponsePaginated, many=True)
+                return paginator.get_paginated_response(member_serializer.data)
             else:
                 try:
                     users = User.objects.filter(username__startswith=username)
