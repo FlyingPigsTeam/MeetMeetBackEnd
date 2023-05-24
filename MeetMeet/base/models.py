@@ -44,6 +44,6 @@ class Task(models.Model):
     title = models.CharField(max_length=100)
     priority = models.PositiveSmallIntegerField(default=0)
     room = models.ForeignKey(Room, on_delete=models.CASCADE , related_name='tasks')
-    user = models.ForeignKey(auth_model.User , on_delete=models.CASCADE , related_name='tasks') 
+    user = models.ManyToManyField(auth_model.User  , related_name='tasks') 
     description = models.TextField(default="")
     done = models.PositiveSmallIntegerField(default=0)

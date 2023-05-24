@@ -485,7 +485,7 @@ class taskResponse(APIView):
             except : 
                 return Response({'fail' : 'Room not found'} , status=HTTP_404_NOT_FOUND)
             # breakpoint()
-            serializer_all = TaskSerializerDynamic(tasks , many=True , fields = ("title",))
+            serializer_all = TaskSerializerDynamic(tasks , many=True , fields = ("title","priority" , "description" , "done"))
             return Response(serializer_all.data, status=HTTP_200_OK)
         if show_all is not None:
             try:
@@ -508,6 +508,7 @@ class taskResponse(APIView):
     def post(self, request, room_id):
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
+        # breakpoint()
         task_serializer = TaskSerializer(data=request.data)
         if task_serializer.is_valid():
             task_serializer.save()
