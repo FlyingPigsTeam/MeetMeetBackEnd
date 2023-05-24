@@ -192,71 +192,85 @@ class PublicMeetViewSet(APIView):
     permission_classes = [IsAuthenticated]
     serializers = RoomSerializers
 
-    def get(self, request):
-        # filter by category & time period & number of members
+    def get(self, request): # get all or some rooms - have params (room_name)
+        room_name = request.GET.get('room_name')
+        if room_name is None:
+            # filter by category & time period & number of members
 
-        # first need to filter valid events (events that have not started yet)
-        rooms = Room.objects.filter(
-            start_date__gte=datetime.datetime.now().date(), room_type=1)
-        # rooms = Room.objects.all()
-        # ---------------------filter--------------------
-        # getting possible filter params
-        categories = request.GET.getlist('categories')
-        start_date = request.GET.get('start_date')
-        end_date = request.GET.get('end_date')
-        member_count = request.GET.get('member_count')
+            # first need to filter valid events (events that have not started yet)
+            rooms = Room.objects.filter(
+                start_date__gte=datetime.datetime.now().date(), room_type=1)
+            # rooms = Room.objects.all()
+            # ---------------------filter--------------------
+            # getting possible filter params
+            categories = request.GET.getlist('categories')
+            start_date = request.GET.get('start_date')
+            end_date = request.GET.get('end_date')
+            member_count = request.GET.get('member_count')
 
-        # checking if param exists or not and if exists do the filtering
-        if len(categories) != 0:
-            rooms = rooms.filter(categories__name__in=categories)
-        if start_date is not None:
-            rooms = rooms.filter(start_date__gte=start_date)
-        if end_date is not None:
-            rooms = rooms.filter(end_date__lte=end_date)
-        if member_count is not None:
-            member_count = int(member_count)
-            rooms = rooms.filter(maximum_member_count=member_count)
+            # checking if param exists or not and if exists do the filtering
+            if len(categories) != 0:
+                rooms = rooms.filter(categories__name__in=categories)
+            if start_date is not None:
+                rooms = rooms.filter(start_date__gte=start_date)
+            if end_date is not None:
+                rooms = rooms.filter(end_date__lte=end_date)
+            if member_count is not None:
+                member_count = int(member_count)
+                rooms = rooms.filter(maximum_member_count=member_count)
 
-        # -------------------- sort----------------------
-        order = request.GET.get('order')
-        # getting sort param from url
-        sort = request.GET.get('sort')
+            # -------------------- sort----------------------
+            order = request.GET.get('order')
+            # getting sort param from url
+            sort = request.GET.get('sort')
 
-        if sort is not None:
-            if sort == 'time':
-                if order == '1':
-                    rooms = rooms.order_by('start_date')
-                else:
-                    rooms = rooms.order_by('-start_date')
+            if sort is not None:
+                if sort == 'time':
+                    if order == '1':
+                        rooms = rooms.order_by('start_date')
+                    else:
+                        rooms = rooms.order_by('-start_date')
 
-            if sort == "duration":
-                rooms = rooms.annotate(
-                    sort_param=F('end_date')-F('start_date'))
-                if order == '1':
-                    rooms = rooms.order_by('sort_param')
-                else:
-                    rooms = rooms.order_by('-sort_param')
+                if sort == "duration":
+                    rooms = rooms.annotate(
+                        sort_param=F('end_date')-F('start_date'))
+                    if order == '1':
+                        rooms = rooms.order_by('sort_param')
+                    else:
+                        rooms = rooms.order_by('-sort_param')
 
-            if sort == 'capacity':
-                # rooms = rooms.annotate(sort_param=F(
-                #     'maximum_member_count')-Count('members'))
-                rooms = rooms.filter(membership__is_member=True).annotate(
-                    sort_param=F('maximum_member_count')-Count('membership'))
-                if order == '1':
-                    rooms = rooms.order_by('sort_param')
-                    for room in rooms:
-                        print(room.sort_param)
-                else:
-                    rooms = rooms.order_by('-sort_param')
+                if sort == 'capacity':
+                    # rooms = rooms.annotate(sort_param=F(
+                    #     'maximum_member_count')-Count('members'))
+                    rooms = rooms.filter(membership__is_member=True).annotate(
+                        sort_param=F('maximum_member_count')-Count('membership'))
+                    if order == '1':
+                        rooms = rooms.order_by('sort_param')
+                        for room in rooms:
+                            print(room.sort_param)
+                    else:
+                        rooms = rooms.order_by('-sort_param')
 
-    # -------------------pagination---------------------------
+        # -------------------pagination---------------------------
 
-        paginator = PageNumberPagination()
-        paginator.page_size = 10
-        jsonResponsePaginated = paginator.paginate_queryset(rooms, request)
-        jsonResponse = RoomCardSerializers(
-            jsonResponsePaginated, many=True).data
-        return paginator.get_paginated_response(jsonResponse)
+            paginator = PageNumberPagination()
+            paginator.page_size = 10
+            jsonResponsePaginated = paginator.paginate_queryset(rooms, request)
+            jsonResponse = RoomCardSerializers(
+                jsonResponsePaginated, many=True).data
+            return paginator.get_paginated_response(jsonResponse)
+        else : 
+            try :
+                rooms = Room.objects.filter(title__startswith = room_name)
+            except : 
+                return Response({'fail' : 'Room not found'} , status=HTTP_404_NOT_FOUND)
+            # breakpoint()
+            paginator = PageNumberPagination()
+            paginator.page_size = 10
+            jsonResponsePaginated = paginator.paginate_queryset(rooms, request)
+            jsonResponse = RoomCardSerializers(
+                jsonResponsePaginated, many=True).data
+            return paginator.get_paginated_response(jsonResponse)
 
     def post(self, request):  # create a room
         room_serializers = RoomSerializers(data=request.data)
@@ -298,7 +312,7 @@ class PublicMeetDeleteUpdate(APIView):
         if Membership.objects.filter(member_id=request.user.id, room_id=room_id , is_member = True).exists() == False:
             room = get_object_or_404(Room, id=room_id)
             all_serializers = RoomDynamicSerializer(
-                room,  context={'request': request, 'room_id': room_id}, fields=("title",  "is_premium",  "start_date", "end_date", "description", "categories", "room_members", "maximum_member_count"))
+                room,  context={'request': request, 'room_id': room_id}, fields=("title",  "is_premium",  "start_date", "end_date", "description", "categories", "room_members", "maximum_member_count" , "tasks"))
             return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
         else:
             room = get_object_or_404(Room, id=room_id)
@@ -453,8 +467,17 @@ class taskResponse(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TaskSerializerDynamic
 
-    def get(self, request, room_id):  # get all or one task or an user task - have params(all , task_id)
+    def get(self, request, room_id):  # get all or one task or an user task - have params(all , task_id , task_name)
         show_all = request.GET.get('show_all')
+        task_name = request.GET.get("task_name")
+        if task_name is not None:
+            try :
+                tasks = Task.objects.filter(title__startswith = task_name)
+            except : 
+                return Response({'fail' : 'Room not found'} , status=HTTP_404_NOT_FOUND)
+            # breakpoint()
+            serializer_all = TaskSerializerDynamic(tasks , many=True , fields = ("title",))
+            return Response(serializer_all.data, status=HTTP_200_OK)
         if show_all is not None:
             try:
                 tasks = Task.objects.filter(room_id=room_id)
