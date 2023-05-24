@@ -51,7 +51,7 @@ class categoriesSerializers(DynamicFieldsModelSerializer):
         model = models.Category
         fields = ("name" , "id") 
 class TaskSerializerDynamic(DynamicFieldsModelSerializer):
-    user = UserSerializer(read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name") )
+    user = UserSerializer(many = True , read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name") )
     class Meta:
         model = models.Task
         fields = "__all__" 
@@ -60,8 +60,19 @@ class TaskSerializer(serializers.ModelSerializer):
         model = models.Task
         fields = "__all__"  
     def create(self, validated_data):
-        room = models.Task.objects.create(**validated_data)
-        return room          
+        users_data = validated_data.pop('user')
+        task = models.Task.objects.create(**validated_data)
+        for person in users_data :
+            task.user.add(person.id)
+        return task    
+    def update(self, instance, validated_data):
+        users_data = validated_data.pop('user')
+        users = instance.user
+        users = []
+        for user in users_data:
+            users.append(user)
+        instance.user.set(users)
+        return super().update(instance, validated_data)      
 
 class RoomSerializers(serializers.ModelSerializer):
     categories = categoriesSerializers(many=True ) 
