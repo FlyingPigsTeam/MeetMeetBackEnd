@@ -273,6 +273,14 @@ class PublicMeetViewSet(APIView):
             return paginator.get_paginated_response(jsonResponse)
 
     def post(self, request):  # create a room
+        # breakpoint()
+        if request.data["is_premium"] == 1 :
+            if request.user.usertype == 0 : 
+                return Response({'fail' : 'access denied'} , status=HTTP_406_NOT_ACCEPTABLE)
+            if request.data["maximum_member_count"] > 50 : 
+                return Response({'fail' : 'maximum_member_count most lower 50'} , status=HTTP_400_BAD_REQUEST)
+        if request.data["is_premium"] == 0 and request.data['maximum_member_count'] > 10 :
+            return Response({'fail' : 'maximum_member_count most be lower 10'} , status= HTTP_406_NOT_ACCEPTABLE)
         room_serializers = RoomSerializers(data=request.data)
         if room_serializers.is_valid():
             room = room_serializers.save()
@@ -505,10 +513,13 @@ class taskResponse(APIView):
                 "id", "title", "priority", "description", "done", "user"))
             return Response(tasks_serializer.data, status=HTTP_200_OK)
 
-    def post(self, request, room_id):
+    def post(self, request, room_id): # have some hard codded thing for max of tasks
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
-        # breakpoint()
+        if room.is_premium == 1 and Task.objects.filter(room_id=room_id).count() > 30 : 
+            return Response({"fail": "reach the limit of max number of tasks"}, status=HTTP_400_BAD_REQUEST)
+        if room.is_premium == 0 and Task.objects.filter(room_id=room_id).count() > 15 :
+            return Response({"fail": "reach the limit of max number of tasks"}, status=HTTP_400_BAD_REQUEST)
         task_serializer = TaskSerializer(data=request.data)
         if task_serializer.is_valid():
             task_serializer.save()
