@@ -52,6 +52,7 @@ class categoriesSerializers(DynamicFieldsModelSerializer):
         fields = ("name" , "id") 
 class TaskSerializerDynamic(DynamicFieldsModelSerializer):
     user = UserSerializer(many = True , read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name") )
+    user_picture = UserSerializer(many = True , read_only = True , fields=("username" , "picture_path" ) )
     class Meta:
         model = models.Task
         fields = "__all__" 
@@ -63,7 +64,7 @@ class TaskSerializer(serializers.ModelSerializer):
         users_data = validated_data.pop('user')
         task = models.Task.objects.create(**validated_data)
         for person in users_data :
-            task.user.add(person.id)
+            task.user.add(person)
         return task    
     def update(self, instance, validated_data):
         users_data = validated_data.pop('user')
@@ -114,7 +115,7 @@ class RoomDynamicSerializer(DynamicFieldsModelSerializer):
     categories = categoriesSerializers(many=True , read_only=True)
     room_members = serializers.SerializerMethodField()
     is_admin = serializers.SerializerMethodField()
-    tasks = TaskSerializerDynamic(many=True , read_only=True , fields = ("title" , "priority"))
+    tasks = TaskSerializerDynamic(many=True , read_only=True , fields = ("title" , "priority" , "description" , "user_picture" ))
     class Meta:
         model = models.Room
         # fields = "__all__"

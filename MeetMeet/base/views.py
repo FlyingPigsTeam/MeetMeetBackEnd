@@ -277,9 +277,9 @@ class PublicMeetViewSet(APIView):
         if request.data["is_premium"] == 1 :
             if request.user.usertype == 0 : 
                 return Response({'fail' : 'access denied'} , status=HTTP_406_NOT_ACCEPTABLE)
-            if request.data["maximum_member_count"] > 50 : 
+            if int(request.data["maximum_member_count"]) > 50 : 
                 return Response({'fail' : 'maximum_member_count most lower 50'} , status=HTTP_400_BAD_REQUEST)
-        if request.data["is_premium"] == 0 and request.data['maximum_member_count'] > 10 :
+        if request.data["is_premium"] == 0 and int( request.data['maximum_member_count'] ) > 10 :
             return Response({'fail' : 'maximum_member_count most be lower 10'} , status= HTTP_406_NOT_ACCEPTABLE)
         room_serializers = RoomSerializers(data=request.data)
         if room_serializers.is_valid():
