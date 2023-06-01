@@ -106,6 +106,7 @@ class RoomSerializers(serializers.ModelSerializer):
         instance.end_date = validated_data.get('end_date' , instance.end_date)
         instance.maximum_member_count = validated_data.get('maximum_member_count' , instance.maximum_member_count)
         instance.open_status = validated_data.get("open_status" , instance.open_status)
+        instance.is_premium = validated_data.get("is_premium" , instance.is_premium)
         
         instance.save()
         
@@ -145,7 +146,7 @@ class RoomCardSerializers(DynamicFieldsModelSerializer):
     def get_member_count(self, instance):
         return  models.Membership.objects.filter(room_id=instance.id, is_member=True).count()
 class ShowMembershipSerializer(DynamicFieldsModelSerializer):
-    member = UserSerializer(read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name") )
+    member = UserSerializer(read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name" , "id") )
     class Meta:
         model = models.Membership
         fields = ["is_owner" , "is_member" , "is_requested" ,"request_status" , "member" , "id" ]

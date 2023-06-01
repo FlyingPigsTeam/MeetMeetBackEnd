@@ -170,6 +170,16 @@ def userInfo(request, username):  # get the info of the user
     user_serializer = UserSerializer(user)
     return Response(user_serializer.data, status=HTTP_200_OK)
 
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def userUpdate(request):
+    id = request.user.id
+    try:
+        User.objects.filter(pk=id).update(usertype=1)
+    except:
+        return Response({"fail":"User not found"} , status=HTTP_404_NOT_FOUND)
+    return Response({"success": "user promoted successfully"} , status=HTTP_200_OK)
+
 
 class PrivateMeetViewSet(APIView):
     permission_classes = [IsAuthenticated]
