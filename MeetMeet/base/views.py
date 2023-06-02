@@ -18,6 +18,8 @@ from django.db.models import F
 from rest_framework.pagination import PageNumberPagination
 import os
 
+MAIN_URL = 'meet-meet.ir'
+
 
 def save_file_to_server(file_data, where, name):
     # create a file system storage object
@@ -61,7 +63,7 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
             file_data, "profile/", f'{id}.{file_type}')
         # must changed for different where!
         User.objects.filter(pk=id).update(
-            picture_path=f"http://127.0.0.1:8000/media/profile/{file_path}")
+            picture_path=f"http://{MAIN_URL}/media/profile/{file_path}")
         return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
     elif where == "room":  # mediafiels/room/id.typefile
         try:
@@ -80,7 +82,7 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
             file_data, "room/", f'{id}.{file_type}')
         # must changed for different where!
         Room.objects.filter(pk=id).update(
-            main_picture_path=f"http://127.0.0.1:8000/media/room/{file_path}")
+            main_picture_path=f"http://{MAIN_URL}/media/room/{file_path}")
         return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
     elif where == "brief_plan" : # mediafiels/brief_plan/room_id/id.typefile
         try:
@@ -100,7 +102,7 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
             file_data, f"brief_plan/{room_id}/", f'{id}.{file_type}')
         # must changed for different where!
         BriefPlan.objects.filter(pk=id).update(
-            picture=f"http://127.0.0.1:8000/media/brief_plan/{room_id}/{file_path}")
+            picture=f"http://{MAIN_URL}/media/brief_plan/{room_id}/{file_path}")
         return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
     else:
         return Response({"fail": "bad params"} , status=HTTP_400_BAD_REQUEST)

@@ -13,7 +13,7 @@ from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.hashers import make_password
 from . import TokenSetting
-
+MAIN_URL = 'meet-meet.ir'
 
 @api_view(["POST"])
 def Register(request):
@@ -26,7 +26,7 @@ def Register(request):
         user = models.User.objects.get(email=user_data.data['email'])
         token = RefreshToken.for_user(user).access_token
         # current_site = str(get_current_site(request))
-        current_site = "localhost:3000/"
+        current_site = f"{MAIN_URL}/"
         # relativeLink = reverse('email-verify')
         relativeLink = "email-verify/"
         absURL = 'http://'+current_site+relativeLink+'?token='+str(token)
@@ -71,7 +71,7 @@ def login(request):
             token1 = RefreshToken.for_user(user).access_token
             # token1 = TokenSetting.MyTokenObtainPairSerializer.get_token(user)
             # current_site = str(get_current_site(request))
-            current_site = "localhost:3000/"
+            current_site = f"{MAIN_URL}/"
             # relativeLink = reverse('email-verify')
             relativeLink = "email-verify/"
             absURL = 'http://'+current_site+relativeLink+'?token='+str(token1)
@@ -99,7 +99,7 @@ def ForgetPassword(request):
 
     token = RefreshToken.for_user(user).access_token
     # current_site = str(get_current_site(request))
-    current_site = "localhost:3000/"
+    current_site = f"{MAIN_URL}/"
     # relativeLink = reverse('email-verify')
     relativeLink = "reset-password/"
     absURL = 'http://'+current_site+relativeLink+'?token='+str(token)
@@ -125,7 +125,7 @@ def ResetPassword(request):
         if not user.email_verified:
             token1 = RefreshToken.for_user(user).access_token
             # current_site = str(get_current_site(request))
-            current_site = "localhost:3000/"
+            current_site = f"{MAIN_URL}/"
             # relativeLink = reverse('email-verify')
             relativeLink = "email-verify/"
             absURL = 'http://'+current_site+relativeLink+'?token='+str(token1)
