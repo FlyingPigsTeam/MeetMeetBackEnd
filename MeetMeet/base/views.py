@@ -176,7 +176,7 @@ def userInfo(request, username):  # get the info of the user
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-def userUpdate(request):
+def userUpdate(request): # upgrade user to premium
     id = request.user.id
     try:
         User.objects.filter(pk=id).update(usertype=1)
@@ -322,6 +322,8 @@ class PublicMeetDeleteUpdate(APIView):
         user_id = request.user.id
         if Membership.objects.filter(room_id=room_id, member_id=user_id , is_member = True).exists():
             return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
+        if Membership.objects.filter(room_id=room_id, member_id=user_id , request_status=0).exists():
+            return Response({"fail": "already requested"}, status=HTTP_406_NOT_ACCEPTABLE)
         try:
             Membership.objects.create(member_id=user_id, room_id=room_id,
                                       is_owner=False, is_member=False, is_requested=True, request_status=0)
@@ -397,6 +399,9 @@ class ResponseToRequests(APIView):  # join the room must add
             return Response({"faild": "room is full"}, status=HTTP_406_NOT_ACCEPTABLE)
         if Membership.objects.filter(room_id=room_id, member_id=user.id , is_member = True).exists():
             return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
+        if Membership.objects.filter(room_id=room_id, member_id=user.id , request_status = 0).exists():
+            request_member = Membership.objects.get(room_id=room_id, member_id=user.id , request_status = 0)
+            request_member.delete()
         Membership.objects.create(member_id=user.id, room_id=room_id,
                                   is_owner=False, is_member=True, is_requested=False, request_status=0)
         return Response({"success": "user added"}, status=HTTP_201_CREATED)
@@ -466,7 +471,6 @@ class ResponseToRequests(APIView):  # join the room must add
             instance=request_member, partial=True, data=request.data)
         if requests_serializer.is_valid():
             requests_serializer.save()
-            # breakpoint()
             return Response({"success": "status changed successfully"}, status=HTTP_200_OK)
         else:
             return Response({"fail": requests_serializer.errors}, status=HTTP_406_NOT_ACCEPTABLE)
