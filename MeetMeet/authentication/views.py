@@ -13,7 +13,11 @@ from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.hashers import make_password
 from . import TokenSetting
-MAIN_URL = 'meet-meet.ir'
+# for run in local host 
+MAIN_URL = 'localhost:3000'
+# for deploy 
+# MAIN_URL = 'meet-meet.ir'
+
 
 @api_view(["POST"])
 def Register(request):

@@ -17,8 +17,10 @@ import datetime
 from django.db.models import F
 from rest_framework.pagination import PageNumberPagination
 import os
-
-MAIN_URL = 'meet-meet.ir'
+# for run in local host 
+MAIN_URL = '127.0.0.1:8000'
+# for deploy 
+# MAIN_URL = 'meet-meet.ir'
 
 
 def save_file_to_server(file_data, where, name):
@@ -432,7 +434,7 @@ class ResponseToRequests(APIView):  # join the room must add
                 return paginator.get_paginated_response(member_serializer.data)
             else:
                 try:
-                    users = User.objects.filter(username__startswith=username)
+                    users = User.objects.filter(username__startswith=username)[:5] # get top five of lists
                 except:
                     Response({"fail": "not found any member"},
                              status=HTTP_404_NOT_FOUND)
