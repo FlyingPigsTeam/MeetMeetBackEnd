@@ -126,8 +126,8 @@ def Home(request):
 def Profile(request):
     user = request.user
     if request.method == 'GET':
-        jsonResponse = ProfileSerializer(
-            user, fields=["username", "email", "first_name", "last_name", "bio", "picture_path"]).data
+        jsonResponse = UserSerializer(
+            user, fields=["username", "email", "first_name", "last_name", "bio", "picture_path" , "usertype"]).data
         return Response(jsonResponse)
 
     if request.method == 'PUT':

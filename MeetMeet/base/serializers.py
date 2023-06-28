@@ -30,7 +30,7 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
         max_length=68, min_length=3)
     class Meta:
         model = auth_models.User
-        fields=("username" , "email" , "first_name" , "last_name" , "bio" , "current_password" , "new_password" , "picture_path")
+        fields=("username" , "email" , "first_name" , "last_name" , "bio" , "current_password" , "new_password" , "picture_path" , "usertype")
     def update(self,instance , validated_data):
         instance.bio = validated_data.get('bio' , instance.bio)
         instance.first_name = validated_data.get('first_name' , instance.first_name)
