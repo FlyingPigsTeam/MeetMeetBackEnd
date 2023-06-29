@@ -437,14 +437,27 @@ class ResponseToRequests(APIView):  # join the room must add
                 member_serializer = ShowMembershipSerializer(
                     jsonResponsePaginated, many=True)
                 return paginator.get_paginated_response(member_serializer.data)
-            else:
-                try:
-                    users = User.objects.filter(username__startswith=username)[:5] # get top five of lists
-                except:
-                    Response({"fail": "not found any member"},
-                             status=HTTP_404_NOT_FOUND)
-                user_serializer = UserSerializer(users, many=True, fields = ("first_name" , "last_name" , "picture_path" , "username" , "id"))
-                return Response(user_serializer.data, status=HTTP_200_OK)
+            else: # search for adding member
+                task_search = request.GET.get('task_search')
+                if task_search is None :
+                    try:
+                        users = User.objects.filter(~Q(membership__room_id=room_id , membership__is_member = True),username__startswith=username)[:5]
+                        # users = Membership.objects.filter(username__startswith=username)[:5] # get top five of lists
+                    except:
+                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
+                    if len( users) == 0 :
+                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
+                    user_serializer = UserSerializer(users, many=True, fields = ("first_name" , "last_name" , "picture_path" , "username" , "id"))
+                    return Response(user_serializer.data, status=HTTP_200_OK)
+                else : 
+                    try:
+                        users = User.objects.filter(Q(membership__room_id=room_id , membership__is_member = True),username__startswith=username)[:5] # get top five of lists
+                    except:
+                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
+                    if len( users) == 0 :
+                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
+                    user_serializer = UserSerializer(users, many=True, fields = ("first_name" , "last_name" , "picture_path" , "username" , "id"))
+                    return Response(user_serializer.data, status=HTTP_200_OK)
 
     def put(self, request, room_id): # accept or reject requests or promote a member - have params(add ,request_id )
         try:  
