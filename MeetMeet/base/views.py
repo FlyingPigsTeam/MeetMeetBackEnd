@@ -463,7 +463,7 @@ class ResponseToRequests(APIView):  # join the room must add
                     return Response(user_serializer.data, status=HTTP_200_OK)
                 else : 
                     try:
-                        users = User.objects.filter(Q(membership__room_id=room_id , membership__is_member = True),username__startswith=username)[:5] # get top five of lists
+                        users = User.objects.filter(Q(membership__room_id=room_id , membership__is_member = True)& Q(username__startswith=username))[:5] # get top five of lists
                     except:
                         return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
                     if len( users) == 0 :
