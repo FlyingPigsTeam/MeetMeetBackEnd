@@ -184,7 +184,10 @@ def userUpdate(request): # upgrade user to premium
         return Response({"fail":"User not found"} , status=HTTP_404_NOT_FOUND)
     return Response({"success": "user promoted successfully"} , status=HTTP_200_OK)
 
-
+# @api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+# def get_all_user_pic (request):
+    
 class PrivateMeetViewSet(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = RoomSerializers
@@ -420,23 +423,32 @@ class ResponseToRequests(APIView):  # join the room must add
         else:  # show the members
             username = request.GET.get('username')
             if username is None:
-                try:
-                    members = Membership.objects.filter(
-                        room_id=room_id).order_by('-is_owner', '-is_requested')
-                except:
-                    return Response({"fail": "not found any requests"}, status=HTTP_404_NOT_FOUND)
-                entriesInString = request.GET.get('entries')
-                entries = 0
-                if entriesInString is None :
-                    entries = 10
+                picture = request.GET.get('picture')
+                if picture is None:
+                    try:
+                        members = Membership.objects.filter(
+                            room_id=room_id).order_by('-is_owner', '-is_requested')
+                    except:
+                        return Response({"fail": "not found any requests"}, status=HTTP_404_NOT_FOUND)
+                    entriesInString = request.GET.get('entries')
+                    entries = 0
+                    if entriesInString is None :
+                        entries = 10
+                    else :
+                        entries = int(entriesInString)
+                    paginator = PageNumberPagination()
+                    paginator.page_size = entries
+                    jsonResponsePaginated = paginator.paginate_queryset(members, request)
+                    member_serializer = ShowMembershipSerializer(
+                        jsonResponsePaginated, many=True)
+                    return paginator.get_paginated_response(member_serializer.data)
                 else :
-                    entries = int(entriesInString)
-                paginator = PageNumberPagination()
-                paginator.page_size = entries
-                jsonResponsePaginated = paginator.paginate_queryset(members, request)
-                member_serializer = ShowMembershipSerializer(
-                    jsonResponsePaginated, many=True)
-                return paginator.get_paginated_response(member_serializer.data)
+                    try:
+                        members =  User.objects.filter(membership__room_id=room_id , membership__is_member = True)
+                    except:
+                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
+                    user_serializer = UserSerializer(members, many=True, fields = ("username" , "picture_path" ))
+                    return Response(user_serializer.data, status=HTTP_200_OK)
             else: # search for adding member
                 task_search = request.GET.get('task_search')
                 if task_search is None :
