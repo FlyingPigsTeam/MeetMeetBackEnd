@@ -1,4 +1,5 @@
 
+import json
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,9 +18,10 @@ import datetime
 from django.db.models import F
 from rest_framework.pagination import PageNumberPagination
 import os
-# for run in local host 
+import pika
+# for run in local host
 MAIN_URL = '127.0.0.1:8000'
-# for deploy 
+# for deploy
 # MAIN_URL = 'meet-meet.ir'
 
 
@@ -71,11 +73,12 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
         try:
             id = int(request.GET.get("id"))
         except:
-            return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)  
-        theUser = get_object_or_404(Membership , room_id = id , member_id = request.user.id )
-        if theUser.is_owner == False :
+            return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)
+        theUser = get_object_or_404(
+            Membership, room_id=id, member_id=request.user.id)
+        if theUser.is_owner == False:
             return Response({"fail": "access denied"}, status=HTTP_406_NOT_ACCEPTABLE)
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.PNG') 
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.PNG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPEG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{id}.JPG')
         file_data = request.data.get('image')
@@ -86,18 +89,22 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
         Room.objects.filter(pk=id).update(
             main_picture_path=f"http://{MAIN_URL}/media/room/{file_path}")
         return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
-    elif where == "brief_plan" : # mediafiels/brief_plan/room_id/id.typefile
+    elif where == "brief_plan":  # mediafiels/brief_plan/room_id/id.typefile
         try:
             id = int(request.GET.get("id"))
             room_id = int(request.GET.get("room_id"))
         except:
-            return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)  
-        theUser = get_object_or_404(Membership , room_id = room_id , member_id = request.user.id )
-        if theUser.is_owner == False :
-            return Response({"fail": "access denied"}, status=HTTP_406_NOT_ACCEPTABLE)  
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.PNG') 
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPEG')
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPG')
+            return Response({"fail": "bad parames"}, status=HTTP_400_BAD_REQUEST)
+        theUser = get_object_or_404(
+            Membership, room_id=room_id, member_id=request.user.id)
+        if theUser.is_owner == False:
+            return Response({"fail": "access denied"}, status=HTTP_406_NOT_ACCEPTABLE)
+        delete_file_in_server(
+            f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.PNG')
+        delete_file_in_server(
+            f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPEG')
+        delete_file_in_server(
+            f'{settings.MEDIA_ROOT}/{where}/{room_id}/{id}.JPG')
         file_data = request.data.get('image')
         file_type = file_data.name.split('.')[1]
         file_path = save_file_to_server(
@@ -107,8 +114,8 @@ def upload_image(request):  # have params (where , id) => profile , brief_plan ,
             picture=f"http://{MAIN_URL}/media/brief_plan/{room_id}/{file_path}")
         return Response({"success": "file successfully added"}, status=HTTP_201_CREATED)
     else:
-        return Response({"fail": "bad params"} , status=HTTP_400_BAD_REQUEST)
-    
+        return Response({"fail": "bad params"}, status=HTTP_400_BAD_REQUEST)
+
 
 # @api_view(["DELETE"])
 # @permission_classes([IsAuthenticated])
@@ -127,7 +134,7 @@ def Profile(request):
     user = request.user
     if request.method == 'GET':
         jsonResponse = UserSerializer(
-            user, fields=["username", "email", "first_name", "last_name", "bio", "picture_path" , "usertype"]).data
+            user, fields=["username", "email", "first_name", "last_name", "bio", "picture_path", "usertype"]).data
         return Response(jsonResponse)
 
     if request.method == 'PUT':
@@ -157,11 +164,11 @@ def randomlinks(request, hashid):
         return Response({"fail": "wrong link"}, status=HTTP_406_NOT_ACCEPTABLE)
     room = get_object_or_404(Room, id=room_id)
     user_id = request.user.id
-    if Membership.objects.filter(room_id=room_id, member_id=user_id , is_member = True).exists():
-        return Response({"fail": "already joined" , "id" : room_id}, status=HTTP_406_NOT_ACCEPTABLE)
+    if Membership.objects.filter(room_id=room_id, member_id=user_id, is_member=True).exists():
+        return Response({"fail": "already joined", "id": room_id}, status=HTTP_406_NOT_ACCEPTABLE)
     if room.link == hashid:
         all_serializers = RoomDynamicSerializer(
-            room, context={'request': request, 'room_id': room_id}, fields=("title",  "start_date" , "end_date", "description", "categories", "main_picture_path" , "id" , "is_premium" , "room_type" , "open_status"))
+            room, context={'request': request, 'room_id': room_id}, fields=("title",  "start_date", "end_date", "description", "categories", "main_picture_path", "id", "is_premium", "room_type", "open_status"))
         return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
     else:
         return Response({"fail": "wrong link"}, status=HTTP_406_NOT_ACCEPTABLE)
@@ -174,20 +181,22 @@ def userInfo(request, username):  # get the info of the user
     user_serializer = UserSerializer(user)
     return Response(user_serializer.data, status=HTTP_200_OK)
 
+
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-def userUpdate(request): # upgrade user to premium
+def userUpdate(request):  # upgrade user to premium
     id = request.user.id
     try:
         User.objects.filter(pk=id).update(usertype=1)
     except:
-        return Response({"fail":"User not found"} , status=HTTP_404_NOT_FOUND)
-    return Response({"success": "user promoted successfully"} , status=HTTP_200_OK)
+        return Response({"fail": "User not found"}, status=HTTP_404_NOT_FOUND)
+    return Response({"success": "user promoted successfully"}, status=HTTP_200_OK)
 
 # @api_view(['GET'])
 # @permission_classes([IsAuthenticated])
 # def get_all_user_pic (request):
-    
+
+
 class PrivateMeetViewSet(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = RoomSerializers
@@ -209,7 +218,7 @@ class PublicMeetViewSet(APIView):
     permission_classes = [IsAuthenticated]
     serializers = RoomSerializers
 
-    def get(self, request): # get all or some rooms - have params (room_name)
+    def get(self, request):  # get all or some rooms - have params (room_name)
         room_name = request.GET.get('room_name')
         if room_name is None:
             # filter by category & time period & number of members
@@ -276,11 +285,11 @@ class PublicMeetViewSet(APIView):
             jsonResponse = RoomCardSerializers(
                 jsonResponsePaginated, many=True).data
             return paginator.get_paginated_response(jsonResponse)
-        else : 
-            try :
-                rooms = Room.objects.filter(title__startswith = room_name)
-            except : 
-                return Response({'fail' : 'Room not found'} , status=HTTP_404_NOT_FOUND)
+        else:
+            try:
+                rooms = Room.objects.filter(title__startswith=room_name)
+            except:
+                return Response({'fail': 'Room not found'}, status=HTTP_404_NOT_FOUND)
             # breakpoint()
             paginator = PageNumberPagination()
             paginator.page_size = 10
@@ -291,13 +300,13 @@ class PublicMeetViewSet(APIView):
 
     def post(self, request):  # create a room
         # breakpoint()
-        if request.data["is_premium"] == 1 :
-            if request.user.usertype == 0 : 
-                return Response({'fail' : 'access denied'} , status=HTTP_406_NOT_ACCEPTABLE)
-            if int(request.data["maximum_member_count"]) > 50 : 
-                return Response({'fail' : 'maximum_member_count most lower 50'} , status=HTTP_400_BAD_REQUEST)
-        if request.data["is_premium"] == 0 and int( request.data['maximum_member_count'] ) > 10 :
-            return Response({'fail' : 'maximum_member_count most be lower 10'} , status= HTTP_406_NOT_ACCEPTABLE)
+        if request.data["is_premium"] == 1:
+            if request.user.usertype == 0:
+                return Response({'fail': 'access denied'}, status=HTTP_406_NOT_ACCEPTABLE)
+            if int(request.data["maximum_member_count"]) > 50:
+                return Response({'fail': 'maximum_member_count most lower 50'}, status=HTTP_400_BAD_REQUEST)
+        if request.data["is_premium"] == 0 and int(request.data['maximum_member_count']) > 10:
+            return Response({'fail': 'maximum_member_count most be lower 10'}, status=HTTP_406_NOT_ACCEPTABLE)
         room_serializers = RoomSerializers(data=request.data)
         if room_serializers.is_valid():
             room = room_serializers.save()
@@ -309,9 +318,9 @@ class PublicMeetViewSet(APIView):
             Room.objects.filter(pk=room.id).update(link=listofparams[0])
             owner = Membership.objects.create(
                 room_id=room.id, is_owner=True, is_member=True, member_id=request.user.id, is_requested=False, request_status=3)
-            obj= Room.objects.last()
+            obj = Room.objects.last()
             # breakpoint()
-            return Response({"success": link_created , "id" : obj.id }, status=HTTP_201_CREATED)
+            return Response({"success": link_created, "id": obj.id}, status=HTTP_201_CREATED)
         else:
             return Response({"fail": "not valid data"}, status=HTTP_406_NOT_ACCEPTABLE)
 
@@ -323,9 +332,9 @@ class PublicMeetDeleteUpdate(APIView):
 
     def post(self, request, room_id):  # join room from main page
         user_id = request.user.id
-        if Membership.objects.filter(room_id=room_id, member_id=user_id , is_member = True).exists():
+        if Membership.objects.filter(room_id=room_id, member_id=user_id, is_member=True).exists():
             return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
-        if Membership.objects.filter(room_id=room_id, member_id=user_id , request_status=0).exists():
+        if Membership.objects.filter(room_id=room_id, member_id=user_id, request_status=0).exists():
             return Response({"fail": "already requested"}, status=HTTP_406_NOT_ACCEPTABLE)
         try:
             Membership.objects.create(member_id=user_id, room_id=room_id,
@@ -336,10 +345,10 @@ class PublicMeetDeleteUpdate(APIView):
         return Response({"success": "user request sent"}, status=HTTP_202_ACCEPTED)
 
     def get(self, request, room_id):  # see the room details
-        if Membership.objects.filter(member_id=request.user.id, room_id=room_id , is_member = True).exists() == False:
+        if Membership.objects.filter(member_id=request.user.id, room_id=room_id, is_member=True).exists() == False:
             room = get_object_or_404(Room, id=room_id)
             all_serializers = RoomDynamicSerializer(
-                room,  context={'request': request, 'room_id': room_id}, fields=("title",  "is_premium",  "start_date", "end_date", "description", "categories", "room_members", "maximum_member_count" , "tasks"))
+                room,  context={'request': request, 'room_id': room_id}, fields=("title",  "is_premium",  "start_date", "end_date", "description", "categories", "room_members", "maximum_member_count", "tasks"))
             return Response(all_serializers.data, status=HTTP_202_ACCEPTED)
         else:
             room = get_object_or_404(Room, id=room_id)
@@ -381,7 +390,8 @@ class PublicMeetDeleteUpdate(APIView):
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
         room.delete()
-        delete_file_in_server(f'{settings.MEDIA_ROOT}/room/{room_id}.PNG') # the foemat of the file may cuz problems
+        # the foemat of the file may cuz problems
+        delete_file_in_server(f'{settings.MEDIA_ROOT}/room/{room_id}.PNG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/room/{room_id}.JPEG')
         delete_file_in_server(f'{settings.MEDIA_ROOT}/room/{room_id}.JPG')
         return Response({"success": "deleted!"}, status=HTTP_200_OK)
@@ -400,16 +410,29 @@ class ResponseToRequests(APIView):  # join the room must add
         maxmember = room.maximum_member_count
         if maxmember == Membership.objects.filter(room_id=room_id, is_member=True).count():
             return Response({"faild": "room is full"}, status=HTTP_406_NOT_ACCEPTABLE)
-        if Membership.objects.filter(room_id=room_id, member_id=user.id , is_member = True).exists():
+        if Membership.objects.filter(room_id=room_id, member_id=user.id, is_member=True).exists():
             return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
-        if Membership.objects.filter(room_id=room_id, member_id=user.id , request_status = 0).exists():
-            request_member = Membership.objects.get(room_id=room_id, member_id=user.id , request_status = 0)
+        if Membership.objects.filter(room_id=room_id, member_id=user.id, request_status=0).exists():
+            request_member = Membership.objects.get(
+                room_id=room_id, member_id=user.id, request_status=0)
             request_member.delete()
         Membership.objects.create(member_id=user.id, room_id=room_id,
                                   is_owner=False, is_member=True, is_requested=False, request_status=0)
+
+        # notif
+        messageBody = "You have been added to {} event".format(room.title)
+        notifmessage = {"type": 1, "user_id": user.id, "message": messageBody}
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host='localhost', port=5672, ))
+        channel = connection.channel()
+        queue_message = json.dump(notifmessage)
+        channel.basic_publish(
+            exchange='', routing_key='notification', body=queue_message)
+        connection.close()
         return Response({"success": "user added"}, status=HTTP_201_CREATED)
 
-    def get(self, request, room_id): # get all of requests or members - have params(show_members , username)
+    # get all of requests or members - have params(show_members , username)
+    def get(self, request, room_id):
         show_members = int(request.GET.get('show_members'))
         if show_members == 0:  # show the requests
             try:
@@ -432,47 +455,55 @@ class ResponseToRequests(APIView):  # join the room must add
                         return Response({"fail": "not found any requests"}, status=HTTP_404_NOT_FOUND)
                     entriesInString = request.GET.get('entries')
                     entries = 0
-                    if entriesInString is None :
+                    if entriesInString is None:
                         entries = 10
-                    else :
+                    else:
                         entries = int(entriesInString)
                     paginator = PageNumberPagination()
                     paginator.page_size = entries
-                    jsonResponsePaginated = paginator.paginate_queryset(members, request)
+                    jsonResponsePaginated = paginator.paginate_queryset(
+                        members, request)
                     member_serializer = ShowMembershipSerializer(
                         jsonResponsePaginated, many=True)
                     return paginator.get_paginated_response(member_serializer.data)
-                else :
+                else:
                     try:
-                        members =  User.objects.filter(membership__room_id=room_id , membership__is_member = True)
+                        members = User.objects.filter(
+                            membership__room_id=room_id, membership__is_member=True)
                     except:
-                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
-                    user_serializer = UserSerializer(members, many=True, fields = ("username" , "picture_path" ))
+                        return Response({"fail": "not found any user"}, status=HTTP_404_NOT_FOUND)
+                    user_serializer = UserSerializer(
+                        members, many=True, fields=("username", "picture_path"))
                     return Response(user_serializer.data, status=HTTP_200_OK)
-            else: # search for adding member
+            else:  # search for adding member
                 task_search = request.GET.get('task_search')
-                if task_search is None :
+                if task_search is None:
                     try:
-                        users = User.objects.filter(~Q(membership__room_id=room_id , membership__is_member = True),username__startswith=username)[:5]
+                        users = User.objects.filter(
+                            ~Q(membership__room_id=room_id, membership__is_member=True), username__startswith=username)[:5]
                         # users = Membership.objects.filter(username__startswith=username)[:5] # get top five of lists
                     except:
-                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
-                    if len( users) == 0 :
-                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
-                    user_serializer = UserSerializer(users, many=True, fields = ("first_name" , "last_name" , "picture_path" , "username" , "id"))
+                        return Response({"fail": "not found any user"}, status=HTTP_404_NOT_FOUND)
+                    if len(users) == 0:
+                        return Response({"fail": "not found any user"}, status=HTTP_404_NOT_FOUND)
+                    user_serializer = UserSerializer(users, many=True, fields=(
+                        "first_name", "last_name", "picture_path", "username", "id"))
                     return Response(user_serializer.data, status=HTTP_200_OK)
-                else : 
+                else:
                     try:
-                        users = User.objects.filter(Q(membership__room_id=room_id , membership__is_member = True)& Q(username__startswith=username))[:5] # get top five of lists
+                        users = User.objects.filter(Q(membership__room_id=room_id, membership__is_member=True) & Q(
+                            username__startswith=username))[:5]  # get top five of lists
                     except:
-                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
-                    if len( users) == 0 :
-                        return Response({"fail": "not found any user"},status=HTTP_404_NOT_FOUND)
-                    user_serializer = UserSerializer(users, many=True, fields = ("first_name" , "last_name" , "picture_path" , "username" , "id"))
+                        return Response({"fail": "not found any user"}, status=HTTP_404_NOT_FOUND)
+                    if len(users) == 0:
+                        return Response({"fail": "not found any user"}, status=HTTP_404_NOT_FOUND)
+                    user_serializer = UserSerializer(users, many=True, fields=(
+                        "first_name", "last_name", "picture_path", "username", "id"))
                     return Response(user_serializer.data, status=HTTP_200_OK)
 
-    def put(self, request, room_id): # accept or reject requests or promote a member - have params(add ,request_id )
-        try:  
+    # accept or reject requests or promote a member - have params(add ,request_id )
+    def put(self, request, room_id):
+        try:
             add = request.GET.get('add')
         except:
             return Response({"fail": "bad params"}, status=HTTP_400_BAD_REQUEST)
@@ -480,15 +511,16 @@ class ResponseToRequests(APIView):  # join the room must add
             maxmember = room.maximum_member_count
             if maxmember == Membership.objects.filter(room_id=room_id, is_member=True).count():
                 return Response({"faild": "room is full"}, status=HTTP_406_NOT_ACCEPTABLE)
-            if Membership.objects.filter(room_id=room_id, member_id=request_id , is_member = True).exists():
+            if Membership.objects.filter(room_id=room_id, member_id=request_id, is_member=True).exists():
                 return Response({"fail": "already joined"}, status=HTTP_406_NOT_ACCEPTABLE)
         request_id = request.GET.get('request_id')
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
         try:
             if add == '1':
-                request_member = Membership.objects.get(member_id=int(request_id) , room_id=room_id)
-            else : 
+                request_member = Membership.objects.get(
+                    member_id=int(request_id), room_id=room_id)
+            else:
                 request_member = Membership.objects.get(pk=int(request_id))
         except:
             return Response({"fail": "not found any request or member"}, status=HTTP_404_NOT_FOUND)
@@ -496,6 +528,19 @@ class ResponseToRequests(APIView):  # join the room must add
             instance=request_member, partial=True, data=request.data)
         if requests_serializer.is_valid():
             requests_serializer.save()
+
+            # notif
+            messageBody = "Your request accepted by the admin of {} event".format(
+                room.title)
+            notifmessage = {"type": 2, "user_id": request_id,
+                            "message": messageBody}
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host='localhost', port=5672, ))
+            channel = connection.channel()
+            queue_message = json.dump(notifmessage)
+            channel.basic_publish(
+                exchange='', routing_key='notification', body=queue_message)
+            connection.close()
             return Response({"success": "status changed successfully"}, status=HTTP_200_OK)
         else:
             return Response({"fail": requests_serializer.errors}, status=HTTP_406_NOT_ACCEPTABLE)
@@ -527,16 +572,18 @@ class taskResponse(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TaskSerializerDynamic
 
-    def get(self, request, room_id):  # get all or one task or an user task - have params(all , task_id , task_name)
+    # get all or one task or an user task - have params(all , task_id , task_name)
+    def get(self, request, room_id):
         show_all = request.GET.get('show_all')
         task_name = request.GET.get("task_name")
         if task_name is not None:
-            try :
-                tasks = Task.objects.filter(title__startswith = task_name)
-            except : 
-                return Response({'fail' : 'Room not found'} , status=HTTP_404_NOT_FOUND)
+            try:
+                tasks = Task.objects.filter(title__startswith=task_name)
+            except:
+                return Response({'fail': 'Room not found'}, status=HTTP_404_NOT_FOUND)
             # breakpoint()
-            serializer_all = TaskSerializerDynamic(tasks , many=True , fields = ("id" ,"title","priority" , "description" , "done" , "user"))
+            serializer_all = TaskSerializerDynamic(tasks, many=True, fields=(
+                "id", "title", "priority", "description", "done", "user"))
             return Response(serializer_all.data, status=HTTP_200_OK)
         if show_all is not None:
             try:
@@ -556,17 +603,32 @@ class taskResponse(APIView):
                 "id", "title", "priority", "description", "done", "user"))
             return Response(tasks_serializer.data, status=HTTP_200_OK)
 
-    def post(self, request, room_id): # have some hard codded thing for max of tasks
+    def post(self, request, room_id):  # have some hard codded thing for max of tasks
         room = get_object_or_404(Room, id=room_id)
         self.check_object_permissions(request, room)
-        if room.is_premium == 1 and Task.objects.filter(room_id=room_id).count() > 30 : 
+        if room.is_premium == 1 and Task.objects.filter(room_id=room_id).count() > 30:
             return Response({"fail": "reach the limit of max number of tasks"}, status=HTTP_400_BAD_REQUEST)
-        if room.is_premium == 0 and Task.objects.filter(room_id=room_id).count() > 15 :
+        if room.is_premium == 0 and Task.objects.filter(room_id=room_id).count() > 15:
             return Response({"fail": "reach the limit of max number of tasks"}, status=HTTP_400_BAD_REQUEST)
         # breakpoint()
         task_serializer = TaskSerializer(data=request.data)
         if task_serializer.is_valid():
             task_serializer.save()
+
+            # notif
+
+            for tempuser in request.data['user']:
+                messageBody = "A new task assigned to you in {} event".format(
+                    room.title)
+                notifmessage = {"type": 3, "user_id": tempuser,
+                                "message": messageBody}
+                connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(host='localhost', port=5672, ))
+                channel = connection.channel()
+                queue_message = json.dump(notifmessage)
+                channel.basic_publish(
+                    exchange='', routing_key='notification', body=queue_message)
+                connection.close()
             return Response(task_serializer.data, status=HTTP_200_OK)
         else:
             return Response({"fail": "not valid data"}, status=HTTP_406_NOT_ACCEPTABLE)
@@ -586,8 +648,23 @@ class taskResponse(APIView):
         )
         # obj = User.objects.get(pk = request.data["user"] )
         # Task.objects.filter(id = task_id).update(user = obj)
+
+        # notif
+        taskUsers = task.user.all().values_list('', flat=True)
         if task_serializer.is_valid():
             task_serializer.save()
+            if request.data['user'] is not None:
+                connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host='localhost', port=5672, ))
+                channel = connection.channel()
+                for i in  request.data['user']:
+                    if taskUsers.filter(id=i).exists() == False:
+                        messageBody = "A new task assigned to you in {} event".format(room.title)
+                        notifmessage = {"type": 3, "user_id": i, "message": messageBody}
+                        queue_message = json.dump(notifmessage)
+                        channel.basic_publish(
+                            exchange='', routing_key='notification', body=queue_message)
+                connection.close()
             return Response({"success": "changed"}, status=HTTP_202_ACCEPTED)
         return Response({"fail": task_serializer.errors}, status=HTTP_406_NOT_ACCEPTABLE)
 
