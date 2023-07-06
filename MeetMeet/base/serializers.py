@@ -51,7 +51,7 @@ class categoriesSerializers(DynamicFieldsModelSerializer):
         model = models.Category
         fields = ("name" , "id") 
 class TaskSerializerDynamic(DynamicFieldsModelSerializer):
-    user = UserSerializer(many = True , read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name") )
+    user = UserSerializer(many = True , read_only = True , fields=("username" , "picture_path" , "bio" , "first_name" , "last_name" , "id") )
     user_picture = UserSerializer(many = True , read_only = True , fields=("username" , "picture_path" ) )
     class Meta:
         model = models.Task
