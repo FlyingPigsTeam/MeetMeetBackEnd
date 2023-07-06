@@ -19,6 +19,7 @@ from django.db.models import F
 from rest_framework.pagination import PageNumberPagination
 import os
 import pika
+from copy import deepcopy
 # for run in local host
 MAIN_URL = '127.0.0.1:8000'
 # for deploy
@@ -425,7 +426,7 @@ class ResponseToRequests(APIView):  # join the room must add
         connection = pika.BlockingConnection(
             pika.ConnectionParameters(host='localhost', port=5672, ))
         channel = connection.channel()
-        queue_message = json.dump(notifmessage)
+        queue_message = json.dumps(notifmessage)
         channel.basic_publish(
             exchange='', routing_key='notification', body=queue_message)
         connection.close()
@@ -530,14 +531,15 @@ class ResponseToRequests(APIView):  # join the room must add
             requests_serializer.save()
 
             # notif
+            user_id = request_member.member.id
             messageBody = "Your request accepted by the admin of {} event".format(
                 room.title)
-            notifmessage = {"type": 2, "user_id": request_id,
+            notifmessage = {"type": 2, "user_id": user_id,
                             "message": messageBody}
             connection = pika.BlockingConnection(
                 pika.ConnectionParameters(host='localhost', port=5672, ))
             channel = connection.channel()
-            queue_message = json.dump(notifmessage)
+            queue_message = json.dumps(notifmessage)
             channel.basic_publish(
                 exchange='', routing_key='notification', body=queue_message)
             connection.close()
@@ -618,14 +620,14 @@ class taskResponse(APIView):
             # notif
 
             for tempuser in request.data['user']:
-                messageBody = "A new task assigned to you in {} event".format(
-                    room.title)
-                notifmessage = {"type": 3, "user_id": tempuser,
+                messageBody = "A new task {} assigned to you in {} event".format(
+                    request.data['title'],room.title)
+                notifmessage = {"type": 3, "user_id": int(tempuser),
                                 "message": messageBody}
                 connection = pika.BlockingConnection(
                     pika.ConnectionParameters(host='localhost', port=5672, ))
                 channel = connection.channel()
-                queue_message = json.dump(notifmessage)
+                queue_message = json.dumps(notifmessage)
                 channel.basic_publish(
                     exchange='', routing_key='notification', body=queue_message)
                 connection.close()
@@ -650,18 +652,23 @@ class taskResponse(APIView):
         # Task.objects.filter(id = task_id).update(user = obj)
 
         # notif
-        taskUsers = task.user.all().values_list('', flat=True)
+        tempUsers = task.user.all().values('id')
+        taskUsers = []
+        for us in tempUsers:
+            taskUsers.append(us['id'])
         if task_serializer.is_valid():
             task_serializer.save()
             if request.data['user'] is not None:
                 connection = pika.BlockingConnection(
-                pika.ConnectionParameters(host='localhost', port=5672, ))
+                    pika.ConnectionParameters(host='localhost', port=5672, ))
                 channel = connection.channel()
-                for i in  request.data['user']:
-                    if taskUsers.filter(id=i).exists() == False:
-                        messageBody = "A new task assigned to you in {} event".format(room.title)
-                        notifmessage = {"type": 3, "user_id": i, "message": messageBody}
-                        queue_message = json.dump(notifmessage)
+                for i in request.data['user']:
+                    if int(i) not in taskUsers:
+                        messageBody = "A new task {} assigned to you in {} event".format(
+                            task.title,room.title)
+                        notifmessage = {"type": 3, "user_id": int(
+                            i), "message": messageBody}
+                        queue_message = json.dumps(notifmessage)
                         channel.basic_publish(
                             exchange='', routing_key='notification', body=queue_message)
                 connection.close()
