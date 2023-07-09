@@ -563,7 +563,7 @@ class ResponseToRequests(APIView):  # join the room must add
 @permission_classes([IsAuthenticated])
 def AlluserTasks(request):
     try:
-        tasks = Task.objects.filter(user_id=request.user.id)
+        tasks = Task.objects.filter(user=request.user.id)
         tasks_serializer = TaskSerializerDynamic(tasks, many=True)
     except:
         return Response({"fail": "not found any tasks"}, status=HTTP_404_NOT_FOUND)
@@ -652,17 +652,18 @@ class taskResponse(APIView):
         # Task.objects.filter(id = task_id).update(user = obj)
 
         # notif
+        temprequest_data = request.data.pop('user' , None)
         tempUsers = task.user.all().values('id')
         taskUsers = []
         for us in tempUsers:
             taskUsers.append(us['id'])
         if task_serializer.is_valid():
             task_serializer.save()
-            if request.data['user'] is not None:
+            if temprequest_data is not None:
                 connection = pika.BlockingConnection(
                     pika.ConnectionParameters(host='localhost', port=5672, ))
                 channel = connection.channel()
-                for i in request.data['user']:
+                for i in temprequest_data:
                     if int(i) not in taskUsers:
                         messageBody = "A new task {} assigned to you in {} event".format(
                             task.title,room.title)
