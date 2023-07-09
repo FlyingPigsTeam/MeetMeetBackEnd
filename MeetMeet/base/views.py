@@ -25,6 +25,11 @@ MAIN_URL = '127.0.0.1:8000'
 # for deploy
 # MAIN_URL = 'meet-meet.ir'
 
+def copy_list_from_dict(dictionary, field_name):
+    result = []
+    if field_name in dictionary and isinstance(dictionary[field_name], list):
+        result = list(dictionary[field_name])
+    return result
 
 def save_file_to_server(file_data, where, name):
     # create a file system storage object
@@ -566,7 +571,7 @@ def AlluserTasks(request):
         tasks = Task.objects.filter(user=request.user.id)
         tasks_serializer = TaskSerializerDynamic(tasks, many=True)
     except:
-        return Response({"fail": "not found any tasks"}, status=HTTP_404_NOT_FOUND)
+        return Response([], status=HTTP_404_NOT_FOUND)
     return Response(tasks_serializer.data, status=HTTP_200_OK)
 
 
@@ -652,14 +657,16 @@ class taskResponse(APIView):
         # Task.objects.filter(id = task_id).update(user = obj)
 
         # notif
-        temprequest_data = request.data.pop('user' , None)
+        
+        temprequest_data = copy_list_from_dict(request.data , 'user')
         tempUsers = task.user.all().values('id')
         taskUsers = []
         for us in tempUsers:
             taskUsers.append(us['id'])
         if task_serializer.is_valid():
             task_serializer.save()
-            if temprequest_data is not None:
+            if temprequest_data is not None and temprequest_data != [] :
+                # breakpoint()
                 connection = pika.BlockingConnection(
                     pika.ConnectionParameters(host='localhost', port=5672, ))
                 channel = connection.channel()
